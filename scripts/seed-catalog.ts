@@ -1,7 +1,13 @@
 /**
- * Seeds `reference_figures` from data/catalog/spiderman.csv.
+ * Seeds `reference_figures` from every CSV in data/catalog/.
  *
  *   npm run db:seed
+ *
+ * Two files today: `spiderman.csv` (the 240-row curated Spider-Man catalog, ADR-008) and
+ * `others-manual.csv` (the non-Spider-Man figures the owner actually owns, so his shelf can
+ * point at a real catalog row). They are parsed as one catalog with one slug namespace, in
+ * the order of `CATALOG_CSV_PATHS`, so the Spider-Man rows keep the slugs they were seeded
+ * with in Phase 2.
  *
  * Idempotent by construction: every row is upserted on its `slug` (the natural key), so
  * running it twice changes nothing but `updated_at`. It never deletes — a figure dropped
@@ -23,7 +29,8 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
 import { referenceFigures } from "../src/db/schema";
-import { CATALOG_CSV_PATH, parseCatalogCsv, type CatalogSeedRow } from "../src/lib/catalog";
+import { FIGURE_CATEGORIES } from "../src/lib/categories";
+import { CATALOG_CSV_PATHS, parseCatalogCsvFiles, type CatalogSeedRow } from "../src/lib/catalog";
 
 /** postgres.js has no statement-size problem here, but small batches keep errors readable. */
 const CHUNK_SIZE = 50;
@@ -52,15 +59,17 @@ function chunk<T>(items: T[], size: number): T[][] {
 async function main(): Promise<void> {
   // `npm run db:seed` always runs with the package root as cwd.
   const repoRoot = process.cwd();
-  const csvPath = path.join(repoRoot, CATALOG_CSV_PATH);
-  if (!existsSync(csvPath)) {
-    throw new Error(
-      `${CATALOG_CSV_PATH} not found — run this from the repo root (npm run db:seed).`,
-    );
-  }
-  const rows: CatalogSeedRow[] = parseCatalogCsv(readFileSync(csvPath, "utf8"));
+  const files = CATALOG_CSV_PATHS.map((csvPath) => {
+    const absolute = path.join(repoRoot, csvPath);
+    if (!existsSync(absolute)) {
+      throw new Error(`${csvPath} not found — run this from the repo root (npm run db:seed).`);
+    }
+    return { path: csvPath, text: readFileSync(absolute, "utf8") };
+  });
 
-  console.log(`Parsed ${rows.length} catalog rows from ${CATALOG_CSV_PATH}`);
+  const rows: CatalogSeedRow[] = parseCatalogCsvFiles(files);
+
+  console.log(`Parsed ${rows.length} catalog rows from ${CATALOG_CSV_PATHS.join(", ")}`);
 
   const client = postgres(loadDatabaseUrl(repoRoot), { max: 1, prepare: false });
   const db = drizzle(client);
@@ -80,6 +89,7 @@ async function main(): Promise<void> {
               popNumber: sql`excluded.pop_number`,
               name: sql`excluded.name`,
               character: sql`excluded.character`,
+              category: sql`excluded.category`,
               productLine: sql`excluded.product_line`,
               releaseYear: sql`excluded.release_year`,
               exclusivity: sql`excluded.exclusivity`,
@@ -110,9 +120,24 @@ async function main(): Promise<void> {
       })
       .from(referenceFigures);
 
+    const byCategory = await db
+      .select({
+        category: referenceFigures.category,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(referenceFigures)
+      .groupBy(referenceFigures.category);
+
+    const counts = new Map(byCategory.map((row) => [row.category, row.count]));
+
     console.log(`Upserted: ${inserted} inserted, ${updated} updated`);
     console.log(
       `reference_figures: ${totals.total} rows · ${totals.countsTowardTotal} count toward the total · ${totals.needsReview} need review`,
+    );
+    console.log(
+      `categories: ${FIGURE_CATEGORIES.map(
+        (category) => `${category} ${counts.get(category) ?? 0}`,
+      ).join(" · ")}`,
     );
   } finally {
     await client.end();

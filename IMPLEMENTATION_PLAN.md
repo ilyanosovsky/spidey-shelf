@@ -8,7 +8,7 @@
 | 0     | Scaffold & CI                   | 🟢                                                         |
 | 1     | Database & admin auth           | 🟢 (scheduled backups deferred → storage phase)            |
 | 2     | Reference catalog seed + images | 🟡 (catalog seeded from plan B — images blocked on rights) |
-| 3     | Owner data entry (19 figures)   | ⬜                                                         |
+| 3     | Owner data entry (19 figures)   | 🟢                                                         |
 | 4     | Public showcase                 | ⬜                                                         |
 | 5     | Search, wishlist & stats        | ⬜                                                         |
 | 6     | Admin Quick Add flow            | ⬜                                                         |
@@ -49,20 +49,68 @@ documented in Environment.md.
 
 ## Phase 2 — Reference catalog seed + images
 
-| Step                                                        | Status | PR  | Notes                                                                                      |
-| ----------------------------------------------------------- | ------ | --- | ------------------------------------------------------------------------------------------ |
-| Decision: pops.today (plan A) vs checklist sites (plan B)   | 🟡     | #4  | plan B (checklist facts) seeded; pops.today reply may upgrade source + unlock images later |
-| Seed script (idempotent, CSV in repo, `source_url` per row) | 🟢     | #4  | `npm run db:seed`; 240 rows upserted on `slug`, 121 count toward the total                 |
-| Manual review pass (`needs_review` triage)                  | 🟡     | #4  | 18 rows flagged `needs_review` — owner triage still to do                                  |
-| Image pipeline: fetch once → 800×800 WebP → object storage  | ⛔     |     | blocked on image rights; `image_path` stays NULL, pixel placeholders in Phase 4 UI         |
-| Storage choice: R2 vs Railway Bucket (ADR)                  | ⬜     |     | deferred until images are cleared                                                          |
+| Step                                                        | Status | PR  | Notes                                                                                        |
+| ----------------------------------------------------------- | ------ | --- | -------------------------------------------------------------------------------------------- |
+| Decision: pops.today (plan A) vs checklist sites (plan B)   | 🟡     | #4  | plan B (checklist facts) seeded; pops.today reply may upgrade source + unlock images later   |
+| Seed script (idempotent, CSV in repo, `source_url` per row) | 🟢     | #4  | `npm run db:seed`; 240 rows upserted on `slug`, 121 count toward the total                   |
+| Manual review pass (`needs_review` triage)                  | 🟡     | #4  | 18 seed rows + 22 ambiguous categorizations (PR #5, listed below) — owner triage still to do |
+| Image pipeline: fetch once → 800×800 WebP → object storage  | ⛔     |     | blocked on image rights; `image_path` stays NULL, pixel placeholders in Phase 4 UI           |
+| Storage choice: R2 vs Railway Bucket (ADR)                  | ⬜     |     | deferred until images are cleared                                                            |
+
+### Ambiguous categorizations awaiting owner triage (22 rows, PR #5)
+
+All 22 are flagged `needs_review = true` in `data/catalog/spiderman.csv`. The rule applied
+throughout (ADR-009): **the depicted base character wins**.
+
+Explicit calls, with the reasoning:
+
+- **233 Superior Spider-Man → `friends_foes`** — Otto Octavius' mind occupying Peter's body
+  and suit (the comics' _Superior Spider-Man_ run) is narratively Doc Ock, not Peter: a foe
+  wearing the suit. Matches the original curator's note that this entry "is not a Peter
+  Parker Spider-Man figure".
+- **302 Gwenom Spider-Man → `spider_verse`** — Gwen Stacy / Spider-Gwen bonded to the Venom
+  symbiote; base character wins, and the base is Gwen.
+- **598 Venomized Spider-Man → `peter`** — the Maximum Venom line's symbiote version of
+  Peter's Spider-Man; base character wins. The mirror case of Venomized Miles Morales, which
+  goes to `spider_verse`.
+- **961 Doppelganger Spider-Man → `friends_foes`** — Marvel's Doppelganger is a separate
+  symbiote-spawned monster that mimics Spider-Man's look, not Peter himself.
+- **966 Poison Spider-Man (Glow Chase) → `peter`** — the Venomverse "Poison"-corrupted
+  version of Peter's Spider-Man; treated exactly like Venomized Spider-Man.
+
+The remaining rows the pass had to decide (same rule, no extra nuance):
+
+| #    | Name                                         | →              |
+| ---- | -------------------------------------------- | -------------- |
+| 1090 | Spider-Man                                   | `peter`        |
+| 1123 | Statue of Liberty                            | `friends_foes` |
+| 1159 | The Amazing Spider-Man                       | `peter`        |
+| 1171 | The Amazing Spider-Man (Unmasked)            | `peter`        |
+| 1186 | The Amazing Spider-Man (Figure 8/8) (Deluxe) | `peter`        |
+| 1223 | Spider-Man                                   | `peter`        |
+| 1223 | Spider-Man (Translucent)                     | `peter`        |
+| 1234 | Gwen Stacy — _Across the Spider-Verse_       | `spider_verse` |
+| 1236 | Spider-Man (10 inch)                         | `peter`        |
+| 1236 | Spider-Man (10 inch) (Black Light)           | `peter`        |
+| 1239 | Peter B. Parker & Mayday                     | `peter`        |
+| 1356 | Gwen Stacy — _Spider-Man: Blue_              | `friends_foes` |
+| 1410 | Mayday Parker                                | `spider_verse` |
+| —    | Iron Man and Spider-Man (2 Pack)             | `peter`        |
+| —    | Spider-Man vs. Spider-Man (2 Pack)           | `peter`        |
+| —    | Spider-Man: No Way Home (3 Pack)             | `peter`        |
+| —    | Spider-Man: No Way Home (8 Pack)             | `peter`        |
+
+The two Gwen Stacys are the interesting pair: #1234 is Spider-Gwen from _Across the
+Spider-Verse_ (a web-slinger → `spider_verse`), #1356 is civilian Gwen from the _Spider-Man:
+Blue_ comics line (a person around Peter → `friends_foes`). Multi-figure packs go to `peter`
+when Peter is in the box, and count toward the total once.
 
 ## Phase 3 — Owner data entry
 
-| Step                                        | Status | PR  | Notes                                                   |
-| ------------------------------------------- | ------ | --- | ------------------------------------------------------- |
-| Minimal admin CRUD for owned figures        | ⬜     |     |                                                         |
-| Enter 12 spiders + 7 other figures manually | ⬜     |     | data in design brief table; first live test of the flow |
+| Step                                        | Status | PR  | Notes                                                                                                              |
+| ------------------------------------------- | ------ | --- | ------------------------------------------------------------------------------------------------------------------ |
+| Minimal admin CRUD for owned figures        | 🟢     | #5  | `/admin/collection` list + `new` (search-first) + `[id]/edit`, real delete behind a confirm step; server-first     |
+| Enter 12 spiders + 7 other figures manually | 🟢     | #5  | done as `data/collection/owned.csv` + `npm run db:seed:owned` (19 rows, all resolved) — repeatable, not hand-typed |
 
 ## Phase 4 — Public showcase
 
@@ -75,12 +123,12 @@ documented in Environment.md.
 
 ## Phase 5 — Search, wishlist & stats
 
-| Step                                                    | Status | PR  | Notes                                      |
-| ------------------------------------------------------- | ------ | --- | ------------------------------------------ |
-| Search by number/name, OWNED / NOT OWNED verdict stamp  | ⬜     |     | shareable `/search?q=1450`                 |
-| Variant disambiguation in results                       | ⬜     |     | shared numbers                             |
-| Wishlist page (NULL rows of the ownership view)         | ⬜     |     | gift-idea CTA                              |
-| Stats: LCD counters 12/121 + 12/240, web-radar progress | ⬜     |     | honest denominator (`counts_toward_total`) |
+| Step                                                    | Status | PR  | Notes                                             |
+| ------------------------------------------------------- | ------ | --- | ------------------------------------------------- |
+| Search by number/name, OWNED / NOT OWNED verdict stamp  | ⬜     |     | shareable `/search?q=1450`                        |
+| Variant disambiguation in results                       | ⬜     |     | shared numbers                                    |
+| Wishlist page (NULL rows of the ownership view)         | ⬜     |     | gift-idea CTA                                     |
+| Stats: LCD counters 11/120 + 19/247, web-radar progress | ⬜     |     | honest denominator = the `peter` bucket (ADR-009) |
 
 ## Phase 6 — Admin Quick Add flow
 
@@ -113,11 +161,12 @@ documented in Environment.md.
 
 ## Log
 
-| Date       | Event                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 2026-08-06 | Research done: no official Funko API; pops.today best source (permission email sent); hobbyDB ruled out (ToS). Architecture v2: Vercel + Railway Postgres, no Notion, no Supabase.                                                                                                                                                                                                                                                                                       |
-| 2026-08-06 | Design brief written; mockups built in Claude Design (docs/design).                                                                                                                                                                                                                                                                                                                                                                                                      |
-| 2026-08-06 | Repo bootstrapped; governance PR opened.                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| 2026-08-06 | PR #1 merged; branch protection on main (PR + CI required). Phase 0 scaffold in PR #2. SESSION_SECRET + ADMIN_PASSWORD_HASH generated into local .env.                                                                                                                                                                                                                                                                                                                   |
-| 2026-08-06 | Phase 1 in PR #3: Drizzle schema + 2 migrations, admin session (jose cookie, bcrypt env hash, `src/proxy.ts`), 22 tests. Two env gotchas found: `.env` carries Railway's internal `DATABASE_URL` (live migration still pending), and Next.js dotenv-expand eats an unescaped bcrypt `$`. Railway backups are Pro-only → `scripts/backup-db.sh` as plan B.                                                                                                                |
-| 2026-08-06 | Phase 2 in PR #4: plan B taken (no pops.today reply yet) — 240-row Spider-Man catalog compiled from checklist facts with a `source_url` per row (ADR-008), seeded live with `npm run db:seed` (idempotent upsert on `slug`; second run: 0 inserted / 240 updated, row count unchanged). Live: 240 rows, 121 `counts_toward_total`, 18 `needs_review`, `image_path` NULL everywhere — images stay out until rights are cleared, so the storage ADR is deferred. 64 tests. |
+| Date       | Event                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-06 | Research done: no official Funko API; pops.today best source (permission email sent); hobbyDB ruled out (ToS). Architecture v2: Vercel + Railway Postgres, no Notion, no Supabase.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 2026-08-06 | Design brief written; mockups built in Claude Design (docs/design).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 2026-08-06 | Repo bootstrapped; governance PR opened.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 2026-08-06 | PR #1 merged; branch protection on main (PR + CI required). Phase 0 scaffold in PR #2. SESSION_SECRET + ADMIN_PASSWORD_HASH generated into local .env.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 2026-08-06 | Phase 1 in PR #3: Drizzle schema + 2 migrations, admin session (jose cookie, bcrypt env hash, `src/proxy.ts`), 22 tests. Two env gotchas found: `.env` carries Railway's internal `DATABASE_URL` (live migration still pending), and Next.js dotenv-expand eats an unescaped bcrypt `$`. Railway backups are Pro-only → `scripts/backup-db.sh` as plan B.                                                                                                                                                                                                                                                                                                                                             |
+| 2026-08-06 | Phase 2 in PR #4: plan B taken (no pops.today reply yet) — 240-row Spider-Man catalog compiled from checklist facts with a `source_url` per row (ADR-008), seeded live with `npm run db:seed` (idempotent upsert on `slug`; second run: 0 inserted / 240 updated, row count unchanged). Live: 240 rows, 121 `counts_toward_total`, 18 `needs_review`, `image_path` NULL everywhere — images stay out until rights are cleared, so the storage ADR is deferred. 64 tests.                                                                                                                                                                                                                              |
+| 2026-08-06 | Phase 3 in PR #5: category taxonomy (ADR-009 — `peter` / `spider_verse` / `friends_foes` / `other`, `counts_toward_total` ⇔ `peter`, denominator 121 → 120) in migration 0002 (column + CHECK + index, view rebuilt to expose `category`); `data/catalog/others-manual.csv` (7 owner figures) joins the seed → 247 rows; `data/collection/owned.csv` + `npm run db:seed:owned` resolved all 19 shelf rows to catalog figures (15 mine / 4 gone, idempotent on `reference_figure_id + acquired_at`); minimal admin CRUD at `/admin/collection` (search-first add, edit, confirm-then-delete), every action re-verifying the session. 120 tests. 22 ambiguous categorizations flagged for owner triage. |

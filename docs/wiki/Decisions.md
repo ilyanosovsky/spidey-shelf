@@ -78,3 +78,28 @@ What that decision rests on:
 - **Reversible.** If pops.today (or another source) grants permission later, the same seeder
   re-runs with a richer CSV: rows are matched on `slug`, `source`/`source_url` are overwritten
   in place, and `image_path` becomes fillable — nothing has to be torn down first.
+
+## ADR-009 · Category taxonomy: four buckets, `peter` is the denominator
+
+**2026-08-06 · accepted** (owner's call, decided in chat). Every `reference_figures` row
+carries a `category`: `peter` · `spider_verse` · `friends_foes` · `other`, labelled
+`PETER PARKER` · `SPIDER-VERSE` · `FRIENDS & FOES` · `OTHER` in the UI.
+
+- **Why buckets at all.** "Spider-Man figures" was never one thing: the shelf mixes Peter's
+  own suits with Miles and Gwen, with Venom and Doc Ock, and with figures that have nothing
+  to do with Spider-Man. One flat list makes the counter meaningless and the tabs arbitrary.
+- **`counts_toward_total` ⇔ `category = 'peter'`.** The stats denominator is now derived from
+  the taxonomy instead of being a separate judgement call per row, so "11 / 120 PETER PARKER
+  COLLECTED" counts exactly what the PETER PARKER tab shows. This moved the denominator from
+  121 to 120: the recategorization pass re-decided a handful of rows in both directions.
+- **Depicted base character wins** for crossovers: a venomized/poisoned Peter is `peter`, a
+  venomized Miles is `spider_verse`, and a suit worn by somebody else (Superior Spider-Man is
+  Otto Octavius) is `friends_foes`. The 22 rows where that rule needed an explicit call are
+  flagged `needs_review` and listed in IMPLEMENTATION_PLAN.md under Phase 2.
+- **`text` + `CHECK`, not a pg enum.** A fifth bucket later is an ALTER of one constraint;
+  an enum type change is not reversible inside a transaction. The column is
+  `NOT NULL DEFAULT 'other'` for admin-written rows, but the seeder refuses a curated CSV row
+  with a blank category rather than bucket it silently.
+- **`other` exists so the vault can hold non-Spider-Man figures** — 7 of the owner's 19 are
+  Deadpools, Stitches, Harry Potter and the Little Prince. Without the bucket they would need
+  a second table or free-text names, and the shelf could not link them to a catalog row.

@@ -19,11 +19,17 @@
 
 export class CsvParseError extends Error {
   readonly line: number;
+  /** File the line belongs to — set when several CSVs are parsed as one catalog. */
+  readonly source: string | null;
+  /** The message without the `file line N:` prefix, so it can be re-thrown per file. */
+  readonly detail: string;
 
-  constructor(message: string, line: number) {
-    super(`CSV line ${line}: ${message}`);
+  constructor(message: string, line: number, source?: string) {
+    super(`${source ?? "CSV"} line ${line}: ${message}`);
     this.name = "CsvParseError";
     this.line = line;
+    this.source = source ?? null;
+    this.detail = message;
   }
 }
 

@@ -1,0 +1,20 @@
+pop_number,name,status,acquired_at,acquired_city,acquired_country,notes
+3,Spider-Man,mine,2023-12-28,Haifa,IL,
+932,Spider-Man Japanese TV Series,mine,2024-07-21,Haifa,IL,
+971,Peter Parker Advanced Suit 2.0,mine,2024-09-03,Munich,DE,
+1136,Spider-Man Amazon Exclusive,mine,2025-02-01,Munich,DE,
+913,Spider-Man Integrated Suit,mine,2025-02-07,Tbilisi,GE,
+1412,Miles G Morales,mine,2025-03-06,Moscow,RU,
+1450,Spider-Man Last Stand,mine,2025-04-12,LA,US,
+1451,Spider-Man Fantastic Four,mine,2025-05-05,Madrid,ES,
+1445,Spider-Man (Fear Itself Suit),mine,2025-10-05,Amsterdam,NL,
+1449,Spider-Man,mine,2025-10-17,Moscow,RU,
+1531,Peter Parker,mine,2025-12-12,Batumi,GE,
+1239,Peter B. Parker & Mayday,mine,2026-01-05,Moscow,RU,
+42,Harry Potter with the Marauder's Map,mine,2024-09-26,Mallorca,ES,non-Spider-Man
+29,Little Prince,not_mine_anymore,2023-12-28,Haifa,IL,non-Spider-Man
+1413,Deadpool,mine,2025-04-12,Moscow,RU,non-Spider-Man
+1344,Deadpool Sleepover,mine,2025-04-15,Moscow,RU,non-Spider-Man
+718,Hula Stitch,not_mine_anymore,2025-10-05,Amsterdam,NL,non-Spider-Man
+1572,Leroy,not_mine_anymore,2025-10-17,Moscow,RU,non-Spider-Man
+1570,Stitch As Pineapple,not_mine_anymore,2025-12-31,Batumi,GE,non-Spider-Man

@@ -28,6 +28,23 @@ Dark theme only — a deliberate "CRT gadget" product choice.
 - Readable sans (system/Inter) — body text, stories.
 - Tabular numerics + wide letter-spacing on LCD digits.
 
+## Category labels
+
+The catalog's four buckets (ADR-009). These strings are the only wording used for them —
+tabs, filters, chips, counters — and live in `src/lib/categories.ts`
+(`FIGURE_CATEGORY_LABELS`), never retyped in a component.
+
+| `category`     | Label            |
+| -------------- | ---------------- |
+| `peter`        | `PETER PARKER`   |
+| `spider_verse` | `SPIDER-VERSE`   |
+| `friends_foes` | `FRIENDS & FOES` |
+| `other`        | `OTHER`          |
+
+Press Start 2P, uppercase, so they stay short by design; `FRIENDS & FOES` is the longest and
+sets the minimum tab width. `PETER PARKER` doubles as the counter caption
+("11 / 120 PETER PARKER COLLECTED") because that bucket _is_ the denominator.
+
 ## Core components
 
 FigureCard (owned / wanted / not-mine-anymore / new-sighting) · VerdictStamp (OWNED green /

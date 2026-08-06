@@ -15,6 +15,13 @@
       "when": 1786015779303,
       "tag": "0001_search_vector_and_view",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786022543530,
+      "tag": "0002_category_taxonomy",
+      "breakpoints": true
     }
   ]
 }
