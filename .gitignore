@@ -19,3 +19,6 @@ coverage/
 *.log
 .vercel
 .turbo
+
+# build artifacts
+*.tsbuildinfo

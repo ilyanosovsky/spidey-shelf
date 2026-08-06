@@ -39,19 +39,19 @@ Marvel/Sony/Samsung и постерный леттеринг «Spider-Man». В�
 
 ## 2. Палитра (токены)
 
-| Токен | HEX | Использование |
-|---|---|---|
-| `--navy-deep` | `#0D2440` | фон карт, подложка экранов |
-| `--navy-panel` | `#123B5C` | панели, карточки на тёмном |
-| `--blue-frame` | `#3A8FC7` | «корпус гаджета»: рамки, бордюры экрана |
-| `--blue-bright` | `#1B41C8` | внешний фон-паспарту (десктоп) |
-| `--coral` | `#F0614F` | НЕТ в коллекции, вишлист, алерты, зубчатые плашки |
-| `--green` | `#4CAF6E` | ЕСТЬ в коллекции, успех, кнопки-профили |
-| `--amber` | `#F5B840` | главные CTA-кнопки, акцентные рамки |
-| `--cream` | `#FFF6E8` | текст на тёмном, светлые заливки |
-| `--lcd-bg` | `#1E3B23` | фон LCD-дисплеев |
-| `--lcd-glow` | `#8BC34A` | цифры и свечение LCD |
-| `--ink-px` | `#101418` | пиксельные контуры, текст на янтарном |
+| Токен           | HEX       | Использование                                     |
+| --------------- | --------- | ------------------------------------------------- |
+| `--navy-deep`   | `#0D2440` | фон карт, подложка экранов                        |
+| `--navy-panel`  | `#123B5C` | панели, карточки на тёмном                        |
+| `--blue-frame`  | `#3A8FC7` | «корпус гаджета»: рамки, бордюры экрана           |
+| `--blue-bright` | `#1B41C8` | внешний фон-паспарту (десктоп)                    |
+| `--coral`       | `#F0614F` | НЕТ в коллекции, вишлист, алерты, зубчатые плашки |
+| `--green`       | `#4CAF6E` | ЕСТЬ в коллекции, успех, кнопки-профили           |
+| `--amber`       | `#F5B840` | главные CTA-кнопки, акцентные рамки               |
+| `--cream`       | `#FFF6E8` | текст на тёмном, светлые заливки                  |
+| `--lcd-bg`      | `#1E3B23` | фон LCD-дисплеев                                  |
+| `--lcd-glow`    | `#8BC34A` | цифры и свечение LCD                              |
+| `--ink-px`      | `#101418` | пиксельные контуры, текст на янтарном             |
 
 Тема одна — тёмная (CRT-гаджет). Светлая тема не нужна: это осознанный выбор мира устройства.
 
@@ -150,6 +150,7 @@ Marvel/Sony/Samsung и постерный леттеринг «Spider-Man». В�
 ## 6. Админка (только владелец)
 
 ### 6.1 Login
+
 Экран-терминал: LCD-поле пароля, пиксельная клавиатура-подсказка, маскот. Одна кнопка `BOOT`.
 
 ### 6.2 Quick Add — сердце продукта. Цель: два тапа + скан
@@ -172,6 +173,7 @@ Marvel/Sony/Samsung и постерный леттеринг «Spider-Man». В�
 Фото фигурки НЕ загружается никогда — бокс-арт подтягивается из справочника автоматически.
 
 ### 6.3 Catalog
+
 Таблица-список справочника: поиск, фильтр `NEEDS REVIEW`, инлайн-редактирование,
 кнопка `+ ADD FIGURE` для фигурок, которых нет в базе.
 
@@ -198,20 +200,20 @@ Marvel/Sony/Samsung и постерный леттеринг «Spider-Man». В�
 
 Использовать в макетах эти настоящие записи, не lorem ipsum:
 
-| # | Название | Pop № | Статус | Место | Дата |
-|---|---|---|---|---|---|
-| 1 | Spider-Man | 3 | Mine | 🇮🇱 Israel, Haifa | 28.12.2023 |
-| 2 | Spider-Man Japanese TV Series | 932 | Mine | 🇮🇱 Israel, Haifa | 21.07.2024 |
-| 3 | Peter Parker Advanced Suit 2.0 | 971 | Mine | 🇩🇪 Germany, Munich | 03.09.2024 |
-| 4 | Spider-Man Amazon Exclusive | 1136 | Mine | 🇩🇪 Germany, Munich | 01.02.2025 |
-| 5 | Spider-Man Integrated Suit | 913 | Mine | 🇬🇪 Georgia, Tbilisi | 07.02.2025 |
-| 6 | Miles G Morales | 1412 | Mine | 🇷🇺 Russia, Moscow | 06.03.2025 |
-| 7 | Spider-Man Last Stand | 1450 | Mine | 🇺🇸 USA, LA | 12.04.2025 |
-| 8 | Spider-Man Fantastic Four | 1451 | Mine | 🇪🇸 Spain, Madrid | 05.05.2025 |
-| 9 | Spider-Man (Fear Itself Suit) | 1445 | Mine | 🇳🇱 Netherlands, Amsterdam | 05.10.2025 |
-| 10 | Spider-Man | 1449 | Mine | 🇷🇺 Russia, Moscow | 17.10.2025 |
-| 11 | Peter Parker | 1531 | Mine | 🇬🇪 Georgia, Batumi | 12.12.2025 |
-| 12 | Peter B. Parker & Mayday | 1239 | Mine | 🇷🇺 Russia, Moscow | 05.01.2026 |
+| #   | Название                       | Pop № | Статус | Место                     | Дата       |
+| --- | ------------------------------ | ----- | ------ | ------------------------- | ---------- |
+| 1   | Spider-Man                     | 3     | Mine   | 🇮🇱 Israel, Haifa          | 28.12.2023 |
+| 2   | Spider-Man Japanese TV Series  | 932   | Mine   | 🇮🇱 Israel, Haifa          | 21.07.2024 |
+| 3   | Peter Parker Advanced Suit 2.0 | 971   | Mine   | 🇩🇪 Germany, Munich        | 03.09.2024 |
+| 4   | Spider-Man Amazon Exclusive    | 1136  | Mine   | 🇩🇪 Germany, Munich        | 01.02.2025 |
+| 5   | Spider-Man Integrated Suit     | 913   | Mine   | 🇬🇪 Georgia, Tbilisi       | 07.02.2025 |
+| 6   | Miles G Morales                | 1412  | Mine   | 🇷🇺 Russia, Moscow         | 06.03.2025 |
+| 7   | Spider-Man Last Stand          | 1450  | Mine   | 🇺🇸 USA, LA                | 12.04.2025 |
+| 8   | Spider-Man Fantastic Four      | 1451  | Mine   | 🇪🇸 Spain, Madrid          | 05.05.2025 |
+| 9   | Spider-Man (Fear Itself Suit)  | 1445  | Mine   | 🇳🇱 Netherlands, Amsterdam | 05.10.2025 |
+| 10  | Spider-Man                     | 1449  | Mine   | 🇷🇺 Russia, Moscow         | 17.10.2025 |
+| 11  | Peter Parker                   | 1531  | Mine   | 🇬🇪 Georgia, Batumi        | 12.12.2025 |
+| 12  | Peter B. Parker & Mayday       | 1239  | Mine   | 🇷🇺 Russia, Moscow         | 05.01.2026 |
 
 Прочие фигурки (таб OTHER FIGURES): Harry Potter #42 (Mine), Deadpool #1413 (Mine),
 Deadpool Sleepover #1344 (Mine), Little Prince #29, Hula Stitch #718, Leroy #1572,
@@ -225,12 +227,14 @@ Stitch As Pineapple #1570 (все четыре — Not Mine Anymore).
 ## 9. Адаптивность
 
 **Mobile (базовый, проектировать первым):**
+
 - Один столбец, грид карточек 2 колонки, safe-area снизу
 - Все действия — в зоне большого пальца; тап-таргеты ≥ 44px
 - Поиск и «Добавить» (в админке) — прилипшие кнопки
 - Пиксельные рамки тоньше, «корпус гаджета» — деликатный, контент важнее декора
 
 **Desktop:**
+
 - Метафора «гаджет на столе»: контент в центре max-width ~1100px, вокруг — паспарту
   `--blue-bright` с лёгкой пиксельной текстурой; рамка-корпус становится толще и наряднее
 - Грид 4–5 колонок, карта и радар — крупнее, ticker во всю ширину

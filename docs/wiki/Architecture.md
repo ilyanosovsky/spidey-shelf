@@ -43,10 +43,10 @@ Object storage (R2 Free or Railway Bucket)
 
 ## External data sources
 
-| Source | Role | Status |
-|---|---|---|
-| pops.today | catalog + UPC + box art (27k pops, 418 spider pages) | permission email sent 2026-08-06 |
-| Checklist sites (funkypriceguide 117, Pop Shop Guide) | plan-B catalog seed | ready |
-| UPCitemdb (free 100 req/day) | scan-time UPC fallback | planned, phase 7 |
-| eBay Browse API (free 5k req/day) | live prices | optional, phase 8 |
-| hobbyDB / Funko official | — | ruled out (ToS / no API) |
+| Source                                                | Role                                                 | Status                           |
+| ----------------------------------------------------- | ---------------------------------------------------- | -------------------------------- |
+| pops.today                                            | catalog + UPC + box art (27k pops, 418 spider pages) | permission email sent 2026-08-06 |
+| Checklist sites (funkypriceguide 117, Pop Shop Guide) | plan-B catalog seed                                  | ready                            |
+| UPCitemdb (free 100 req/day)                          | scan-time UPC fallback                               | planned, phase 7                 |
+| eBay Browse API (free 5k req/day)                     | live prices                                          | optional, phase 8                |
+| hobbyDB / Funko official                              | —                                                    | ruled out (ToS / no API)         |
