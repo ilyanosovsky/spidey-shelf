@@ -3,6 +3,9 @@
 > Ground rule: **`pop_number` is NOT unique** — Funko reuses numbers across product lines and
 > variants (chase/GITD/metallic) share the base number. `slug` is the natural key.
 
+Live definition: `src/db/schema.ts` + `drizzle/`. Column names below are the snake_case SQL
+names; Drizzle exposes them camelCased.
+
 ## reference_figures — catalog of everything that exists
 
 | Column                  | Type                 | Notes                                      |
@@ -25,7 +28,12 @@
 | search_vector           | tsvector generated   | name + character + product_line            |
 | created_at / updated_at | timestamptz          |                                            |
 
-Indexes: `pop_number`; GIN on `search_vector`; GIN `gin_trgm_ops` on `name` (fuzzy search).
+Indexes: unique on `slug`; btree on `pop_number` and `upc`; GIN on `search_vector`; GIN
+`gin_trgm_ops` on `name` (fuzzy search, needs the `pg_trgm` extension).
+
+`search_vector` is a **stored generated** column, weighted `name` (A) > `character` (B) >
+`product_line` (C), built with the `simple` text-search config — character names are proper
+nouns, so English stemming would only mangle them.
 
 ## owned_figures — the collection + acquisition story
 
@@ -47,15 +55,26 @@ Indexes: `pop_number`; GIN on `search_vector`; GIN `gin_trgm_ops` on `name` (fuz
 | needs_story                      | bool default false    | "write it later" queue                              |
 | created_at / updated_at          | timestamptz           |                                                     |
 
+`acquired_country` is `varchar(2)` (Postgres `char(2)` blank-pads, which bites on
+comparisons). The FK is `ON DELETE SET NULL` — deleting a catalog row must never delete the
+memory of owning the figure. Indexes: `reference_figure_id` (the view's join) and
+`created_at` (the "new sightings" ribbon).
+
 No photo table: box art lives on the catalog row (`image_path`). A personal-photos table can
 be added later without breaking anything.
 
 ## View: catalog_with_ownership
 
-`reference_figures LEFT JOIN owned_figures` → `is_owned`, `owned_count`.
+`reference_figures LEFT JOIN owned_figures` → every catalog column plus `is_owned` (bool),
+`owned_count` (int) and `first_owned_at` (timestamptz).
 
 - Powers public search verdicts AND stats from one definition.
-- Its NULL rows (not owned) ARE the wishlist — no extra table.
-- "New sightings" ribbon orders by `owned_figures.created_at` (when it was added to the
-  site), not `acquired_at` (when it was bought) — backfilled old figures are still "new"
-  to visitors.
+- Its `is_owned = false` rows ARE the wishlist — no extra table.
+- `owned_count` is `SUM(quantity)` over the matching owned rows; rows whose `status` is
+  `not_mine_anymore` are excluded, a NULL `status` still counts (a half-finished quick-add
+  must not make a figure vanish from the collection).
+- `first_owned_at` = `MIN(owned_figures.created_at)` — when it was added to the **site**,
+  not `acquired_at` (when it was bought). Backfilled old figures are still "new" to
+  visitors, which is what the "new sightings" ribbon orders by.
+- Created in `drizzle/0001_search_vector_and_view.sql` and declared in `src/db/schema.ts`
+  as an `.existing()` view so queries are typed without drizzle-kit owning its DDL.

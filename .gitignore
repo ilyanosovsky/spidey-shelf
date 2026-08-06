@@ -22,3 +22,6 @@ coverage/
 
 # build artifacts
 *.tsbuildinfo
+
+# manual db backups (scripts/backup-db.sh)
+backups/
