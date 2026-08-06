@@ -45,14 +45,24 @@ Object storage (R2 Free or Railway Bucket)
   `scripts/backup-db.sh` (`pg_dump --format=custom`) run by hand; Phase 2 moves the same
   dump onto a schedule into object storage. See [[Environment]].
 - **Stats denominator**: `counts_toward_total` flag in the catalog; UI shows both
-  "core canon 12/117" and "full Spider-Verse 12/~400" with a "catalog updated" date.
+  "core canon 12/121" and "full Spider-Verse 12/240" with a "catalog updated" date.
+  Both numbers come from the seeded catalog (121 of 240 rows count toward the core total),
+  and both move whenever the CSV is re-seeded.
 
 ## External data sources
 
-| Source                                                | Role                                                 | Status                           |
-| ----------------------------------------------------- | ---------------------------------------------------- | -------------------------------- |
-| pops.today                                            | catalog + UPC + box art (27k pops, 418 spider pages) | permission email sent 2026-08-06 |
-| Checklist sites (funkypriceguide 117, Pop Shop Guide) | plan-B catalog seed                                  | ready                            |
-| UPCitemdb (free 100 req/day)                          | scan-time UPC fallback                               | planned, phase 7                 |
-| eBay Browse API (free 5k req/day)                     | live prices                                          | optional, phase 8                |
-| hobbyDB / Funko official                              | —                                                    | ruled out (ToS / no API)         |
+| Source                                                | Role                                                 | Status                                     |
+| ----------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------ |
+| pops.today                                            | catalog + UPC + box art (27k pops, 418 spider pages) | permission email sent 2026-08-06, no reply |
+| Checklist sites (funkypriceguide 117, Pop Shop Guide) | plan-B catalog seed                                  | **seeded (plan B)** — 240 rows, ADR-008    |
+| UPCitemdb (free 100 req/day)                          | scan-time UPC fallback                               | planned, phase 7                           |
+| eBay Browse API (free 5k req/day)                     | live prices                                          | optional, phase 8                          |
+| hobbyDB / Funko official                              | —                                                    | ruled out (ToS / no API)                   |
+
+## Catalog seed
+
+`data/catalog/spiderman.csv` (240 rows, facts + a `source_url` each) is the reviewable input;
+`npm run db:seed` parses it with the strict RFC 4180 reader in `src/lib/csv.ts`, computes the
+`slug` in `src/lib/catalog.ts` and upserts `reference_figures` on that slug. The seeder never
+deletes and never touches `image_path`, `upc` or `is_vaulted`, so re-running it is safe once
+later phases start filling those in. No box art is fetched — see ADR-008.

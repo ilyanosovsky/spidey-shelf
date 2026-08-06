@@ -52,3 +52,29 @@ Exclusives may share a UPC → the confirm-variant screen is mandatory.
 **2026-08-06 · accepted.** `docs/wiki/` in the main repo is the reviewable source of truth,
 updated in the same PR as the change; a GitHub Action mirrors it to the GitHub Wiki on merge.
 Direct wiki edits are not allowed (they'd be overwritten by the next sync).
+
+## ADR-008 · Catalog seeded from checklist facts (plan B)
+
+**2026-08-06 · accepted.** pops.today (plan A, ADR-001) has not answered the permission email,
+so the catalog ships on plan B: `data/catalog/spiderman.csv`, 240 Spider-Man rows compiled by
+us from public checklists (funkypriceguide, Pop Shop Guide, Cardboard Connection), loaded by
+`npm run db:seed`.
+
+What that decision rests on:
+
+- **Facts only.** Each row carries a pop number, a figure name, a product line, a release year
+  and an exclusivity label — unoriginal facts about physical products, not anyone's creative
+  expression. No descriptions, no editorial text, no price data, no images were copied.
+- **Attribution per row.** `source` and `source_url` are stored on every row, so any figure on
+  the site can be traced back to where its facts came from; `notes` in the CSV records
+  cross-checks between lists.
+- **Images deliberately excluded.** Box art _is_ protected expression, so `image_path` stays
+  NULL for all 240 rows until we have written permission for a specific image source. Phase 4
+  renders pixel-art placeholders instead; the ADR-004 pipeline stays unbuilt, and the R2 vs
+  Railway Bucket storage ADR is deferred with it (nothing to store yet).
+- **Our own compilation, in the open.** The CSV lives in the public repo as a reviewable,
+  hand-curated artifact — the selection, the `counts_toward_total` calls and the `needs_review`
+  triage are ours. The site is non-commercial and single-owner.
+- **Reversible.** If pops.today (or another source) grants permission later, the same seeder
+  re-runs with a richer CSV: rows are matched on `slug`, `source`/`source_url` are overwritten
+  in place, and `image_path` becomes fillable — nothing has to be torn down first.
