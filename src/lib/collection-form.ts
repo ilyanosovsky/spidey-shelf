@@ -22,13 +22,18 @@ export const MIN_SEARCH_TEXT_LENGTH = 2;
  * One input, two searches. A run of digits is the number printed on the box, which is an
  * exact lookup; anything else is a name, which is full-text + trigram. `1450` is never
  * treated as a word — a Funko number is the single most precise thing the owner can type.
+ *
+ * The number branch tolerates how people actually type a box number: surrounding spaces, a
+ * leading `#`, and a space after it (`# 1450`). It does NOT tolerate spaces inside the
+ * digits — `1 450` is a typo, and guessing at it would answer a gift question about the
+ * wrong figure.
  */
 export function parseReferenceSearchQuery(raw: string): ReferenceSearchQuery {
   const trimmed = raw.trim().replace(/\s+/g, " ");
   if (trimmed.length === 0) return { kind: "empty" };
 
-  if (/^#?\d+$/.test(trimmed)) {
-    const digits = trimmed.replace("#", "");
+  if (/^#? ?\d+$/.test(trimmed)) {
+    const digits = trimmed.replace(/[# ]/g, "");
     const popNumber = Number.parseInt(digits, 10);
     // A number long enough to overflow an int column is a typo, not a pop number.
     if (Number.isSafeInteger(popNumber) && popNumber <= 2147483647) {

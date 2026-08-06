@@ -1,3 +1,4 @@
+import { type CatalogSearchResult, type PublicCatalogFigure } from "@/lib/search";
 import { type PublicShelfEntry } from "@/lib/showcase";
 
 /**
@@ -75,4 +76,81 @@ export const SHELF_FIXTURE: PublicShelfEntry[] = [
     acquiredCountry: "DE",
   }),
   shelfEntry(),
+];
+
+/**
+ * A catalog row as the public search and the wishlist see it — no `needs_review`, no
+ * `source`, nothing a visitor may not see. Real figures again: #334 is the GameStop
+ * Gamerverse Spider-Man nobody owns, which is the design brief's own NOT OWNED example.
+ */
+export function catalogFigure(overrides: Partial<PublicCatalogFigure> = {}): PublicCatalogFigure {
+  return {
+    slug: "pop-spider-man-gamerverse-spider-man-white-spider-334",
+    name: "Spider-Man (White Spider)",
+    popNumber: 334,
+    category: "peter",
+    productLine: "Pop! Spider-Man (Gamerverse)",
+    exclusivity: "GameStop",
+    variantFlags: [],
+    ...overrides,
+  };
+}
+
+/** The same row plus the ownership signals the verdict is made of. */
+export function catalogResult(overrides: Partial<CatalogSearchResult> = {}): CatalogSearchResult {
+  return {
+    ...catalogFigure(),
+    ownedCount: 0,
+    hadOnce: false,
+    hasPublicPage: false,
+    ...overrides,
+  };
+}
+
+/**
+ * A wishlist slice with the two orderings that matter: shared box numbers, and the
+ * numberless multi-packs that have to sink to the bottom.
+ */
+export const WISHLIST_FIXTURE: PublicCatalogFigure[] = [
+  catalogFigure({
+    slug: "pop-spider-man-no-way-home-3-pack",
+    name: "Spider-Man: No Way Home (3 Pack)",
+    popNumber: null,
+  }),
+  catalogFigure({
+    slug: "pop-spider-man-gamerverse-spider-man-white-spider-334",
+    popNumber: 334,
+  }),
+  catalogFigure({
+    slug: "pop-spider-man-into-the-spider-verse-miles-morales-402",
+    name: "Miles Morales",
+    popNumber: 402,
+    category: "spider_verse",
+    productLine: "Pop! Spider-Man: Into the Spider-Verse",
+    exclusivity: null,
+  }),
+  catalogFigure({
+    slug: "pop-marvel-venom-363",
+    name: "Venom",
+    popNumber: 363,
+    category: "friends_foes",
+    productLine: "Pop! Marvel",
+    exclusivity: null,
+  }),
+  catalogFigure({
+    slug: "pop-spider-man-into-the-spider-verse-miles-morales-translucent-402",
+    name: "Miles Morales Translucent",
+    popNumber: 402,
+    category: "spider_verse",
+    productLine: "Pop! Spider-Man: Into the Spider-Verse",
+    exclusivity: null,
+  }),
+  catalogFigure({
+    slug: "pop-disney-lilo-stitch-leroy-1572",
+    name: "Leroy",
+    popNumber: 1572,
+    category: "other",
+    productLine: "Pop! Disney: Lilo & Stitch",
+    exclusivity: null,
+  }),
 ];

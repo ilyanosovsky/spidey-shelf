@@ -7,6 +7,7 @@ import { LCDCounter } from "@/components/lcd-counter";
 import { PixelButtonLink } from "@/components/pixel-button";
 import { PixelFrame } from "@/components/pixel-frame";
 import { categoryAccent, PixelSpiderArt } from "@/components/pixel-spider-art";
+import { PublicNav } from "@/components/public-nav";
 import { ToothedBanner } from "@/components/toothed-banner";
 import { figureCategoryLabel } from "@/lib/categories";
 import { countryFlagEmoji, formatPlace, formatPopNumber, formatSightingDate } from "@/lib/format";
@@ -64,6 +65,8 @@ export default async function FigurePage({ params }: { params: Promise<{ slug: s
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-5 p-4 sm:p-6">
+      <PublicNav pathname={`/figure/${current.slug}`} />
+
       <PixelFrame as="header" className="p-5" accent={accent}>
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
           <div className="mx-auto w-full max-w-[260px] sm:mx-0 sm:w-2/5 sm:shrink-0">
