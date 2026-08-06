@@ -44,10 +44,9 @@ Object storage (R2 Free or Railway Bucket)
 - **Backups**: Railway's native database backups need the Pro plan, so Hobby gets
   `scripts/backup-db.sh` (`pg_dump --format=custom`) run by hand; Phase 2 moves the same
   dump onto a schedule into object storage. See [[Environment]].
-- **Stats denominator**: `counts_toward_total` flag in the catalog; UI shows both
-  "core canon 12/121" and "full Spider-Verse 12/240" with a "catalog updated" date.
-  Both numbers come from the seeded catalog (121 of 240 rows count toward the core total),
-  and both move whenever the CSV is re-seeded.
+- **Stats denominator**: the `peter` category (ADR-009), mirrored by `counts_toward_total`;
+  UI shows both "PETER PARKER 11/120" and the full catalog "19/247" with a "catalog updated"
+  date. Both numbers come from the seeded catalog and move whenever the CSVs are re-seeded.
 
 ## External data sources
 
@@ -61,8 +60,21 @@ Object storage (R2 Free or Railway Bucket)
 
 ## Catalog seed
 
-`data/catalog/spiderman.csv` (240 rows, facts + a `source_url` each) is the reviewable input;
-`npm run db:seed` parses it with the strict RFC 4180 reader in `src/lib/csv.ts`, computes the
-`slug` in `src/lib/catalog.ts` and upserts `reference_figures` on that slug. The seeder never
-deletes and never touches `image_path`, `upc` or `is_vaulted`, so re-running it is safe once
-later phases start filling those in. No box art is fetched — see ADR-008.
+`data/catalog/*.csv` (247 rows — 240 Spider-Man + 7 owner-owned others, facts and a
+`source_url` each) is the reviewable input; `npm run db:seed` parses every file as one
+catalog with the strict RFC 4180 reader in `src/lib/csv.ts`, computes the `slug` in
+`src/lib/catalog.ts` and upserts `reference_figures` on that slug. The seeder never deletes
+and never touches `image_path`, `upc` or `is_vaulted`, so re-running it is safe once later
+phases start filling those in. No box art is fetched — see ADR-008.
+
+## Collection seed and admin CRUD
+
+`data/collection/owned.csv` (19 rows from the owner's Notion) → `npm run db:seed:owned` →
+`owned_figures`. Each row is resolved to a catalog figure by `pop_number` + a fuzzy name
+match (`src/lib/collection.ts`, pure and unit-tested); an unresolved row fails the run rather
+than land as a dangling name. Idempotency key: `reference_figure_id + acquired_at`.
+
+The same data is editable at `/admin/collection` — a server-rendered list, a search-first add
+screen (`pop_number` exact, or `search_vector` FTS OR'd with a `pg_trgm` match on the name)
+and an edit form. Client components exist only where interaction demands them (the search box
+and the delete confirm); every server action calls `requireAdmin()` before it touches a row.

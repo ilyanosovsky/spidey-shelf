@@ -1,23 +1,43 @@
+import { FIGURE_CATEGORIES, type FigureCategory } from "./categories";
 import { CsvParseError, parseCsvWithHeader } from "./csv";
 import { figureSlug, slugify } from "./slug";
 
 /**
- * The curated Spider-Man catalog: CSV → validated `reference_figures` rows.
+ * The curated catalog: CSV → validated `reference_figures` rows.
  *
- * The CSV in `data/catalog/spiderman.csv` is our own compilation of checklist facts
- * (pop numbers, names, product lines, exclusivity) with a `source_url` on every row —
- * see ADR-008 in docs/wiki/Decisions.md. This module is pure (text in, rows out) so the
- * seed script and the tests agree on exactly one interpretation of the file.
+ * `data/catalog/spiderman.csv` is our own compilation of checklist facts (pop numbers,
+ * names, product lines, exclusivity) with a `source_url` on every row — see ADR-008 in
+ * docs/wiki/Decisions.md. `data/catalog/others-manual.csv` holds the handful of non
+ * Spider-Man figures the owner actually owns, so his shelf can be entered against a real
+ * catalog row instead of a free-text name.
+ *
+ * The seeder loads **every** `data/catalog/*.csv`, in the order of {@link CATALOG_CSV_PATHS},
+ * as one file: slugs are deduped across the whole set, so a row can never silently take a
+ * slug that another file already claimed.
+ *
+ * This module is pure (text in, rows out) so the seed script and the tests agree on exactly
+ * one interpretation of the files.
  */
 
-/** Repo-relative path of the catalog CSV — shared by the seed script and its tests. */
-export const CATALOG_CSV_PATH = "data/catalog/spiderman.csv";
+/**
+ * Repo-relative paths of the catalog CSVs — shared by the seed script and its tests.
+ * Order is load order, and load order decides who wins a contested slug: the Spider-Man
+ * catalog was seeded first in Phase 2 and must keep every slug it already has.
+ */
+export const CATALOG_CSV_PATHS = [
+  "data/catalog/spiderman.csv",
+  "data/catalog/others-manual.csv",
+] as const;
+
+/** The Spider-Man catalog on its own — the file the `counts_toward_total` rules apply to. */
+export const CATALOG_CSV_PATH = CATALOG_CSV_PATHS[0];
 
 /** Columns the CSV must declare, in any order. `notes` is triage prose, not a DB column. */
 export const CATALOG_CSV_COLUMNS = [
   "pop_number",
   "name",
   "character",
+  "category",
   "product_line",
   "release_year",
   "exclusivity",
@@ -36,6 +56,8 @@ export interface CatalogSeedRow {
   popNumber: number | null;
   name: string;
   character: string | null;
+  /** ADR-009 bucket. Required in the CSV — a blank cell is a parse error, never a default. */
+  category: FigureCategory;
   productLine: string | null;
   releaseYear: number | null;
   exclusivity: string | null;
@@ -66,6 +88,26 @@ function parseBoolean(value: string, column: string, line: number, fallback: boo
   if (trimmed === "true") return true;
   if (trimmed === "false") return false;
   throw new CsvParseError(`\`${column}\` must be true or false, found \`${value}\``, line);
+}
+
+/**
+ * The taxonomy bucket. Deliberately has no fallback: the column's DB default (`other`) is
+ * there for rows written by the admin UI, but a curated CSV row with a blank or unknown
+ * category is a mistake in the file, and a silent `other` would hide it forever.
+ */
+function parseCategory(value: string, line: number): FigureCategory {
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed.length === 0) {
+    throw new CsvParseError("`category` is required", line);
+  }
+  const match = FIGURE_CATEGORIES.find((category) => category === trimmed);
+  if (!match) {
+    throw new CsvParseError(
+      `\`category\` must be one of ${FIGURE_CATEGORIES.join(", ")}, found \`${value.trim()}\``,
+      line,
+    );
+  }
+  return match;
 }
 
 /** `chase|glow` → `["chase", "glow"]`; empty → `[]` (never null, so queries need no guard). */
@@ -117,12 +159,15 @@ export function catalogSlug(
 }
 
 /**
- * Parses the catalog CSV into insert-ready rows with unique slugs.
+ * Parses one catalog CSV into insert-ready rows with unique slugs.
  *
- * Throws {@link CsvParseError} on a missing column, a malformed number or a malformed
- * boolean — the seeder must refuse a broken file rather than write half a catalog.
+ * Throws {@link CsvParseError} on a missing column, a malformed number, a malformed boolean
+ * or an unknown category — the seeder must refuse a broken file rather than write half a
+ * catalog.
+ *
+ * `taken` lets several files share one slug namespace; see {@link parseCatalogCsvFiles}.
  */
-export function parseCatalogCsv(text: string): CatalogSeedRow[] {
+export function parseCatalogCsv(text: string, taken: Set<string> = new Set()): CatalogSeedRow[] {
   const { header, rows, lines } = parseCsvWithHeader(text);
 
   for (const column of CATALOG_CSV_COLUMNS) {
@@ -130,8 +175,6 @@ export function parseCatalogCsv(text: string): CatalogSeedRow[] {
       throw new CsvParseError(`missing required column \`${column}\``, 1);
     }
   }
-
-  const taken = new Set<string>();
 
   return rows.map((row, index) => {
     const line = lines[index];
@@ -144,6 +187,7 @@ export function parseCatalogCsv(text: string): CatalogSeedRow[] {
       popNumber: parseIntegerOrNull(row.pop_number, "pop_number", line),
       name,
       character: textOrNull(row.character),
+      category: parseCategory(row.category, line),
       productLine: textOrNull(row.product_line),
       releaseYear: parseIntegerOrNull(row.release_year, "release_year", line),
       exclusivity: textOrNull(row.exclusivity),
@@ -158,4 +202,35 @@ export function parseCatalogCsv(text: string): CatalogSeedRow[] {
     taken.add(slug);
     return { slug, ...parsed };
   });
+}
+
+/** One catalog file, already read off disk by the caller. */
+export interface CatalogCsvFile {
+  /** Repo-relative path — only used to name the file in error messages. */
+  path: string;
+  text: string;
+}
+
+/**
+ * Parses every catalog CSV as one catalog, with a single shared slug namespace.
+ *
+ * A `CsvParseError` from any file is re-thrown with the file name in front of it, because
+ * "CSV line 42" is useless once there is more than one CSV.
+ */
+export function parseCatalogCsvFiles(files: readonly CatalogCsvFile[]): CatalogSeedRow[] {
+  const taken = new Set<string>();
+  const rows: CatalogSeedRow[] = [];
+
+  for (const file of files) {
+    try {
+      rows.push(...parseCatalogCsv(file.text, taken));
+    } catch (error) {
+      if (error instanceof CsvParseError) {
+        throw new CsvParseError(error.detail, error.line, file.path);
+      }
+      throw error;
+    }
+  }
+
+  return rows;
 }

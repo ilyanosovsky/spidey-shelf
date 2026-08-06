@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   date,
   index,
   integer,
@@ -12,6 +13,10 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+
+// Relative, not `@/` — drizzle-kit and the seed scripts load this file outside the Next.js
+// module resolver, where the path alias is not guaranteed to exist.
+import { DEFAULT_FIGURE_CATEGORY, FIGURE_CATEGORIES, type FigureCategory } from "../lib/categories";
 
 /**
  * Schema for docs/wiki/Data-Model.md.
@@ -25,7 +30,9 @@ import {
  *      name + character + product_line, with a GIN index.
  *   2. the `gin_trgm_ops` index on `reference_figures.name` (fuzzy search, needs pg_trgm).
  *   3. the `catalog_with_ownership` view (declared below with `.existing()` so Drizzle can
- *      query it in a typed way without trying to own its DDL).
+ *      query it in a typed way without trying to own its DDL). Every change to its column
+ *      list needs a hand-written `CREATE OR REPLACE VIEW` — see
+ *      drizzle/0002_category_taxonomy.sql, which added `category` to it.
  *
  * Because of that, migrations MUST go through `npm run db:generate` + `npm run db:migrate`.
  * Never `drizzle-kit push` against this database — push diffs the live database against
@@ -46,6 +53,11 @@ export const referenceFigures = pgTable(
     name: text("name").notNull(),
     /** Spider-Man / Miles Morales / Spider-Gwen … (reserved word in SQL, always quoted). */
     character: text("character"),
+    /**
+     * Taxonomy bucket — `peter` / `spider_verse` / `friends_foes` / `other` (ADR-009).
+     * Invariant enforced by the seed: `counts_toward_total` ⇔ `category = 'peter'`.
+     */
+    category: text("category").$type<FigureCategory>().notNull().default(DEFAULT_FIGURE_CATEGORY),
     /** e.g. `Pop! Marvel: No Way Home`. */
     productLine: text("product_line"),
     releaseYear: integer("release_year"),
@@ -70,6 +82,15 @@ export const referenceFigures = pgTable(
   (table) => [
     index("reference_figures_pop_number_idx").on(table.popNumber),
     index("reference_figures_upc_idx").on(table.upc),
+    index("reference_figures_category_idx").on(table.category),
+    // A text column with a CHECK instead of a pg enum: adding a fifth bucket later is an
+    // ALTER of one constraint, not an irreversible type change.
+    // `sql.raw` on purpose: a template value would become a bind parameter, and drizzle-kit
+    // would emit `CHECK (category in ($1, $2, …))` into the migration file.
+    check(
+      "reference_figures_category_check",
+      sql`${table.category} in (${sql.raw(FIGURE_CATEGORIES.map((value) => `'${value}'`).join(", "))})`,
+    ),
   ],
 );
 
@@ -128,6 +149,7 @@ export const catalogWithOwnership = pgView("catalog_with_ownership", {
   popNumber: integer("pop_number"),
   name: text("name").notNull(),
   character: text("character"),
+  category: text("category").$type<FigureCategory>().notNull(),
   productLine: text("product_line"),
   releaseYear: integer("release_year"),
   exclusivity: text("exclusivity"),
