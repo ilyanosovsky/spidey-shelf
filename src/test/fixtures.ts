@@ -1,3 +1,4 @@
+import { type AdminCatalogFigure } from "@/lib/quick-add";
 import { type CatalogSearchResult, type PublicCatalogFigure } from "@/lib/search";
 import { type PublicShelfEntry } from "@/lib/showcase";
 
@@ -152,5 +153,66 @@ export const WISHLIST_FIXTURE: PublicCatalogFigure[] = [
     category: "other",
     productLine: "Pop! Disney: Lilo & Stitch",
     exclusivity: null,
+  }),
+];
+
+/**
+ * A catalog row as the ADMIN sees it — the public columns plus `needs_review` and
+ * `owned_count`. Real figure again: #3 is the one number in this catalog with four
+ * Spider-Men behind it, which is exactly what the confirm step exists for.
+ */
+export function adminFigure(overrides: Partial<AdminCatalogFigure> = {}): AdminCatalogFigure {
+  return {
+    id: "11111111-1111-4111-8111-111111111111",
+    slug: "pop-marvel-spider-man-3",
+    name: "Spider-Man",
+    popNumber: 3,
+    category: "peter",
+    productLine: "Pop! Marvel",
+    exclusivity: null,
+    variantFlags: [],
+    releaseYear: 2011,
+    needsReview: false,
+    ownedCount: 0,
+    ...overrides,
+  };
+}
+
+/** #3 and its three variants, plus one unrelated figure that must never join the group. */
+export const VARIANT_FIXTURE: AdminCatalogFigure[] = [
+  adminFigure(),
+  adminFigure({
+    id: "22222222-2222-4222-8222-222222222222",
+    slug: "pop-marvel-spider-man-metallic-3",
+    name: "Spider-Man (Metallic)",
+    variantFlags: ["metallic"],
+  }),
+  adminFigure({
+    id: "33333333-3333-4333-8333-333333333333",
+    slug: "pop-marvel-spider-man-glow-3",
+    name: "Spider-Man (Glow)",
+    variantFlags: ["glow"],
+    exclusivity: "SDCC",
+    needsReview: true,
+  }),
+  adminFigure({
+    id: "44444444-4444-4444-8444-444444444444",
+    slug: "pop-marvel-spider-man-translucent-4",
+    name: "Spider-Man (Translucent)",
+    popNumber: 4,
+  }),
+  adminFigure({
+    id: "55555555-5555-4555-8555-555555555555",
+    slug: "pop-marvel-spider-man-1090",
+    name: "Spider-Man",
+    popNumber: 1090,
+    releaseYear: 2022,
+  }),
+  adminFigure({
+    id: "66666666-6666-4666-8666-666666666666",
+    slug: "pop-marvel-venom-363",
+    name: "Venom",
+    popNumber: 363,
+    category: "friends_foes",
   }),
 ];

@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { requireAdmin } from "@/lib/dal";
 import { listOwnedFigures } from "@/lib/collection-queries";
+import {
+  COLLECTION_FILTERS,
+  collectionFilterHref,
+  filterOwnedRows,
+  parseCollectionFilter,
+} from "@/lib/quick-add";
 
 import { CategoryChip, Panel, PixelLink, StatusChip } from "../ui";
 import { DeleteOwnedFigure } from "./delete-owned-figure";
@@ -18,11 +25,23 @@ function place(city: string | null, country: string | null): string {
   return [city, country].filter(Boolean).join(", ") || "—";
 }
 
-export default async function AdminCollectionPage() {
+const FILTER_LABELS = {
+  all: "ALL",
+  needs_story: "NEEDS STORY",
+} as const;
+
+export default async function AdminCollectionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string | string[] }>;
+}) {
   // Real enforcement. src/proxy.ts only redirects optimistically (CVE-2025-29927).
   await requireAdmin();
 
-  const figures = await listOwnedFigures();
+  const { filter: rawFilter } = await searchParams;
+  const filter = parseCollectionFilter(rawFilter);
+  const all = await listOwnedFigures();
+  const figures = filterOwnedRows(all, filter);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-5 p-4 sm:p-6">
@@ -38,9 +57,27 @@ export default async function AdminCollectionPage() {
           </p>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-3">
-          <PixelLink href="/admin/collection/new" variant="primary">
-            + ADD A FIGURE
+        {/* Two chips, one of them the story queue the console links to. */}
+        <nav aria-label="Filter" className="mt-5 flex flex-wrap gap-2">
+          {COLLECTION_FILTERS.map((value) => (
+            <Link
+              key={value}
+              href={collectionFilterHref(value)}
+              aria-current={value === filter ? "page" : undefined}
+              className={`font-pixel inline-flex min-h-11 items-center justify-center rounded border-2 px-3 py-2 text-[10px] tracking-wider ${
+                value === filter
+                  ? "border-ink-px bg-pop-green text-ink-px"
+                  : "border-blue-frame text-cream"
+              }`}
+            >
+              {FILTER_LABELS[value]}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <PixelLink href="/admin/add" variant="primary">
+            + QUICK ADD
           </PixelLink>
           <PixelLink href="/admin">BACK TO CONSOLE</PixelLink>
         </div>
@@ -48,9 +85,17 @@ export default async function AdminCollectionPage() {
 
       {figures.length === 0 ? (
         <Panel>
-          <p className="font-pixel text-[10px] leading-relaxed text-amber">THE VAULT IS EMPTY.</p>
+          <p className="font-pixel text-[10px] leading-relaxed text-amber">
+            {filter === "needs_story" ? "NO STORIES OWED. NICE." : "THE VAULT IS EMPTY."}
+          </p>
           <p className="mt-3 text-sm text-cream/70">
-            Add the first figure, or run <code>npm run db:seed:owned</code> to load the CSV.
+            {filter === "needs_story" ? (
+              "Every sighting on the shelf has its story written."
+            ) : (
+              <>
+                Add the first figure, or run <code>npm run db:seed:owned</code> to load the CSV.
+              </>
+            )}
           </p>
         </Panel>
       ) : (
@@ -88,6 +133,12 @@ export default async function AdminCollectionPage() {
                     </dd>
                   </div>
                 </dl>
+
+                {figure.needsStory === true ? (
+                  <p className="font-pixel mt-4 inline-block rounded border-2 border-amber px-2 py-1 text-[8px] tracking-wider text-amber">
+                    STORY OWED
+                  </p>
+                ) : null}
 
                 {figure.isPublic === false ? (
                   <p className="font-pixel mt-4 text-[8px] tracking-wider text-coral">

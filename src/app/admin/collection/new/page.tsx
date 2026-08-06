@@ -1,41 +1,15 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { requireAdmin } from "@/lib/dal";
-
-import { Panel, PixelLink } from "../../ui";
-import { AddOwnedFigure } from "./add-owned-figure";
-
-export const metadata: Metadata = {
-  title: "ADD A FIGURE — Spidey Shelf",
-  robots: { index: false, follow: false },
-};
-
+/**
+ * The Phase 3 add screen, retired.
+ *
+ * `/admin/add` replaced it in Phase 6: same job, four server-rendered steps instead of one
+ * client-side form, a mandatory variant confirmation and a duplicate guard. The old path
+ * stays as a redirect because it is bookmarked on the owner's phone and linked from every
+ * screenshot in the wiki.
+ */
 export const dynamic = "force-dynamic";
 
-/** Today in the server's timezone — the date the owner almost always wants. */
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-export default async function NewOwnedFigurePage() {
-  // Real enforcement. src/proxy.ts only redirects optimistically (CVE-2025-29927).
-  await requireAdmin();
-
-  return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 p-4 sm:p-6">
-      <Panel>
-        <h1 className="font-pixel text-base leading-relaxed text-cream">NEW SIGHTING</h1>
-        <p className="mt-3 text-sm text-cream/70">
-          Type the number on the box, or a name. Pick the exact variant — numbers repeat.
-        </p>
-        <div className="mt-5">
-          <PixelLink href="/admin/collection">BACK TO THE VAULT</PixelLink>
-        </div>
-      </Panel>
-
-      <Panel>
-        <AddOwnedFigure today={today()} />
-      </Panel>
-    </main>
-  );
+export default async function LegacyNewOwnedFigurePage() {
+  redirect("/admin/add");
 }

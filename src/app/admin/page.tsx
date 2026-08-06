@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { FIGURE_CATEGORY_LABELS } from "@/lib/categories";
-import { getVaultStats } from "@/lib/collection-queries";
+import { countStoriesOwed, getVaultStats } from "@/lib/collection-queries";
 import { requireAdmin } from "@/lib/dal";
+import { STORY_QUEUE_HREF, storiesOwedLabel } from "@/lib/quick-add";
 
 import { logoutAction } from "../login/actions";
 import { LcdStat, Panel, PixelLink, pixelButton } from "./ui";
@@ -18,7 +20,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminPage() {
   // Real enforcement. src/proxy.ts only redirects optimistically (CVE-2025-29927).
   const session = await requireAdmin();
-  const stats = await getVaultStats();
+  const [stats, storiesOwed] = await Promise.all([getVaultStats(), countStoriesOwed()]);
 
   const remaining = Math.max(stats.peterTotal - stats.peterOwned, 0);
 
@@ -43,12 +45,26 @@ export default async function AdminPage() {
           {remaining} SPIDERS STILL OUT THERE
         </p>
 
+        {/*
+         * The story queue. Quick Add lets a sighting be logged with no prose (`SKIP FOR NOW`),
+         * which only works as a promise if the owed stories are counted somewhere he passes
+         * every time — hence an LCD line on the console, not a badge buried in the list.
+         */}
+        <Link
+          href={STORY_QUEUE_HREF}
+          className="mt-4 flex min-h-11 items-center justify-center rounded border-2 border-ink-px bg-lcd-bg px-3 py-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber active:translate-x-[2px] active:translate-y-[2px]"
+        >
+          <span className="font-pixel text-[10px] tracking-wider text-lcd-glow tabular-nums">
+            {storiesOwedLabel(storiesOwed)}
+          </span>
+        </Link>
+
         <div className="mt-6 flex flex-col gap-3">
-          <PixelLink href="/admin/collection" variant="primary">
-            OPEN THE VAULT
+          <PixelLink href="/admin/add" variant="primary">
+            + QUICK ADD
           </PixelLink>
-          <PixelLink href="/admin/collection/new" variant="secondary">
-            + ADD A FIGURE
+          <PixelLink href="/admin/collection" variant="secondary">
+            OPEN THE VAULT
           </PixelLink>
         </div>
 

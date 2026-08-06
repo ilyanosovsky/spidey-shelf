@@ -32,14 +32,11 @@ export function OwnedFigureForm({
   reference,
   values,
   submitLabel,
-  onChangeFigure,
 }: {
   action: (state: OwnedFigureFormState, formData: FormData) => Promise<OwnedFigureFormState>;
   reference: Pick<ReferenceSearchResult, "id" | "popNumber" | "name" | "productLine">;
   values: OwnedFigureFormValues;
   submitLabel: string;
-  /** Shown on the add screen so a mis-picked figure does not mean starting over. */
-  onChangeFigure?: () => void;
 }) {
   const [state, formAction, pending] = useActionState(action, emptyOwnedFigureFormState);
 
@@ -54,15 +51,6 @@ export function OwnedFigureForm({
         <p className="mt-2 text-sm text-cream">{reference.name}</p>
         {reference.productLine ? (
           <p className="mt-1 text-xs text-cream/60">{reference.productLine}</p>
-        ) : null}
-        {onChangeFigure ? (
-          <button
-            type="button"
-            onClick={onChangeFigure}
-            className="font-pixel mt-3 text-[8px] tracking-wider text-blue-frame underline"
-          >
-            PICK ANOTHER FIGURE
-          </button>
         ) : null}
       </div>
 
