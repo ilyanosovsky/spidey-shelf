@@ -27,8 +27,42 @@ Object storage (R2 Free or Railway Bucket)
   fetches + link rot). One-time pipeline: fetch box art → sharp → 800×800 WebP → bucket.
   Served exclusively through `next/image`.
 
+## Rendering strategy
+
+Every page that reads the database declares `export const dynamic = "force-dynamic"`.
+
+- **Required, not a preference.** `src/db/index.ts` initialises lazily so a missing
+  `DATABASE_URL` does not explode at import time, but a prerendered page still _queries_
+  during `next build`'s page-data collection — and CI has no `DATABASE_URL`. That mistake
+  has already broken CI once. The rule: a page that touches Drizzle is dynamic.
+- **No ISR yet.** Friends-scale traffic, a ~20-row shelf, and the Vercel function region
+  (fra1) sits next to Railway (EU West), so the round trip is a few milliseconds. The owner
+  also expects an admin edit to show up on the next reload; a revalidation window would make
+  that a "why is it still the old one?" bug report. Revisit if the site ever gets real
+  traffic — the queries are already in one place (`src/lib/showcase-queries.ts`).
+- The public queries select only visible columns of `is_public = true` rows, and join
+  `reference_figures` INNER (no slug ⇒ no public URL). `needs_review`, `source` and
+  `source_url` are never selected on a public path.
+
+## Placeholder box art
+
+`image_path` is NULL everywhere while image rights are unresolved (ADR-008), so Phase 4
+draws the box art instead of leaving holes: `PixelSpiderArt` renders a 16×16 inline-SVG
+pixel spider tinted by the figure's category, with the pop number as cover text. It is
+deterministic — an FNV-1a hash of the slug picks three background specks and nothing else
+varies — so a figure looks identical on the grid, on its own page, and after a redeploy.
+When the rights question is settled, this component is what `next/image` replaces; no page
+layout depends on anything else about it.
+
 ## Key mechanisms
 
+- **Public showcase**: `/` renders the whole shelf (header + LCD `peter` counter, a NEW
+  SIGHTINGS ribbon, `?cat=` tabs over the four buckets, a 2/3/4-column grid) and
+  `/figure/[slug]` renders one figure with its sighting log and wrap-around prev/next.
+  Ordering is by `acquired_at` desc, **not** `created_at`: the collection was backfilled in
+  a single seed run, so every row shares one `created_at` instant. All the decisions
+  (filtering, neighbours, the ticker line, the formatters) are pure functions in
+  `src/lib/showcase.ts` and `src/lib/format.ts`; `src/lib/showcase-queries.ts` only fetches.
 - **Public search**: `/search?q=` accepts a pop number or a name; answers with a full-screen
   OWNED / NOT OWNED verdict. Backed by the `catalog_with_ownership` view.
 - **Quick Add** (admin): identify (scan UPC via zxing-wasm | type number | type name) →
