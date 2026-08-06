@@ -54,8 +54,9 @@ sets the minimum tab width. `PETER PARKER` doubles as the counter caption
 
 ## Core components
 
-Built in Phase 4, all in `src/components/` and all **server components** — nothing on the
-public showcase needs client JavaScript yet:
+Built in Phase 4, all in `src/components/` and all **server components**. Everything on the
+public site is still server-rendered except one deliberate exception, `ShareButton` below —
+the native share sheet is not something a server can hand over:
 
 | Component        | Props                                                   | Notes                                                                                                                                                      |
 | ---------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -71,9 +72,22 @@ public showcase needs client JavaScript yet:
 Category hues (`PixelSpiderArt`, card frames, category chips): `peter` → coral ·
 `spider_verse` → green · `friends_foes` → amber · `other` → blue-frame.
 
-Still to build: VerdictStamp (OWNED green / NOT OWNED coral) · WebRadar (progress) ·
-MapMarker (pixel spider, green/red/gray) · ScannerOverlay (web-corner viewfinder) ·
-Mascot (own sprite).
+Added in Phase 5 (search, wishlist, stats):
+
+| Component      | Props           | Notes                                                                                                                                                                                                                                 |
+| -------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VerdictStamp` | `verdict`       | the answer, stamped: green `OWNED` · coral `NOT OWNED YET` + amber `GIFT IDEA` chip · coral `NOT OWNED` + the lower-case footnote "was in the collection once". Rotated −2°, ink on both fills                                        |
+| `PublicNav`    | `pathname`      | SHELF · SEARCH · WISHLIST · STATS as a 4-column grid (never wraps at 375px), `min-h-11`, active item filled green. `pathname` is a prop — server components have no `usePathname()`                                                   |
+| `WantedCard`   | `figure`        | `FigureCard`'s twin for a catalog row nobody owns: coral frame, WANTED stamp top-right, links to `/search?q=<number>`. Not one big link — it holds the SHARE button                                                                   |
+| `ShareButton`  | `href`, `title` | the one client component on the public site: `navigator.share`, else clipboard + "LINK COPIED" for 2s. Resolves the relative href against the current origin                                                                          |
+| `WebRadar`     | `progress`      | the spider-web progress chart: one sector per bucket filled to `owned / total`, 4 rings, 12 threads. Geometry is pure and tested in `src/lib/radar.ts`; the SVG is `aria-hidden` and the legend beneath carries the labels and counts |
+
+`WebRadar` fills **linearly and honestly** — at 11/120 the peter wedge really is a sliver.
+No minimum-visible-bar fudge: the counters next to it are the point of the screen, and a
+chart that flatters them would undo them.
+
+Still to build: MapMarker (pixel spider, green/red/gray) · ScannerOverlay (web-corner
+viewfinder) · Mascot (own sprite).
 
 The admin (`src/app/admin/ui.tsx`) re-exports `PixelButton`'s classes so the whole device
 has one button; its `Panel`, `LcdStat` and chips stay admin-sized on purpose.
@@ -82,6 +96,13 @@ has one button; its `Panel`, `LcdStat` and chips stay admin-sized on purpose.
 
 Gadget speaks English, short and geeky: `SIGHTING CONFIRMED!` · `ALREADY IN THE VAULT` ·
 `63 SPIDERS STILL OUT THERE` · `BARCODE NOT FOUND. TYPE THE NUMBER?`
+
+Phase 5 wording, all of it in `src/lib/search.ts` / `src/lib/wishlist.ts` rather than in a
+component: `GIFT CHECK` · `ENTER POP NUMBER OR NAME` · `CHECK THE SHELF` ·
+`31 MATCHES · 1 ALREADY ON THE SHELF` · `NOT IN THE CATALOG (YET)` ·
+`WANTED: 109 SPIDERS STILL OUT THERE` · `NOTHING LEFT IN THIS SECTOR` · `PETER CANON` /
+`ALL SPIDERS` / `WHOLE VAULT`. The empty search result deliberately has **no** "write to the
+owner" CTA — this is a read-only showcase, not a shop with a contact form.
 
 ## Accessibility
 

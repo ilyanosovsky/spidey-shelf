@@ -16,6 +16,7 @@ import { FigureCard } from "./figure-card";
 import { LCDCounter } from "./lcd-counter";
 import { PIXEL_BUTTON_VARIANTS } from "./pixel-button";
 import { PixelFrame } from "./pixel-frame";
+import { PublicNav } from "./public-nav";
 import { TickerBar } from "./ticker-bar";
 import { ToothedBanner } from "./toothed-banner";
 
@@ -42,6 +43,8 @@ export function ShelfScreen({
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-5 p-4 sm:p-6">
+      <PublicNav pathname="/" />
+
       <PixelFrame as="header" className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-pixel text-base leading-relaxed text-cream sm:text-xl">
@@ -54,15 +57,23 @@ export function ShelfScreen({
           </p>
         </div>
 
-        <LCDCounter
-          className="mt-5"
-          value={`${progress.owned} / ${progress.total}`}
-          label={`${FIGURE_CATEGORY_LABELS.peter} COLLECTED`}
-        />
+        {/* The counter is the door to the stats screen — the design brief's "tap the LCD". */}
+        <Link
+          href="/stats"
+          className="mt-5 block rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber"
+        >
+          <LCDCounter
+            value={`${progress.owned} / ${progress.total}`}
+            label={`${FIGURE_CATEGORY_LABELS.peter} COLLECTED`}
+          />
+        </Link>
 
-        <p className="font-pixel mt-4 text-center text-[10px] leading-relaxed tracking-wider text-amber">
-          {remaining} SPIDERS STILL OUT THERE
-        </p>
+        <Link
+          href="/wishlist"
+          className="font-pixel mt-4 flex min-h-11 items-center justify-center text-center text-[10px] leading-relaxed tracking-wider text-amber focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber"
+        >
+          {remaining} SPIDERS STILL OUT THERE →
+        </Link>
       </PixelFrame>
 
       {ribbon.length > 0 ? (

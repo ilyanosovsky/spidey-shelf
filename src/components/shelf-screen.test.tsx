@@ -14,7 +14,27 @@ describe("ShelfScreen", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/SPIDEY/);
     expect(screen.getByText("11 / 120")).toBeInTheDocument();
     expect(screen.getByText("PETER PARKER COLLECTED")).toBeInTheDocument();
-    expect(screen.getByText("109 SPIDERS STILL OUT THERE")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /109 SPIDERS STILL OUT THERE/ })).toHaveAttribute(
+      "href",
+      "/wishlist",
+    );
+  });
+
+  it("makes the counter the door to the stats screen", () => {
+    render(<ShelfScreen entries={SHELF_FIXTURE} progress={PROGRESS} filter="all" />);
+
+    expect(screen.getByRole("link", { name: /11 \/ 120/ })).toHaveAttribute("href", "/stats");
+  });
+
+  it("carries the public nav, with SHELF lit", () => {
+    render(<ShelfScreen entries={SHELF_FIXTURE} progress={PROGRESS} filter="all" />);
+
+    const nav = screen.getByRole("navigation", { name: "Sections" });
+    expect(within(nav).getByRole("link", { name: "SHELF" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(within(nav).getByRole("link", { name: "SEARCH" })).toHaveAttribute("href", "/search");
   });
 
   it("shows every public figure and never a staged one", () => {

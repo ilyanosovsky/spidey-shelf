@@ -42,7 +42,9 @@ Every page that reads the database declares `export const dynamic = "force-dynam
   traffic — the queries are already in one place (`src/lib/showcase-queries.ts`).
 - The public queries select only visible columns of `is_public = true` rows, and join
   `reference_figures` INNER (no slug ⇒ no public URL). `needs_review`, `source` and
-  `source_url` are never selected on a public path.
+  `source_url` are never selected on a public path. The catalog-wide public reads (search,
+  wishlist, stats) live in `src/lib/catalog-queries.ts` under the same rules; the shelf
+  reads stay in `src/lib/showcase-queries.ts`.
 
 ## Placeholder box art
 
@@ -63,8 +65,26 @@ layout depends on anything else about it.
   a single seed run, so every row shares one `created_at` instant. All the decisions
   (filtering, neighbours, the ticker line, the formatters) are pure functions in
   `src/lib/showcase.ts` and `src/lib/format.ts`; `src/lib/showcase-queries.ts` only fetches.
-- **Public search**: `/search?q=` accepts a pop number or a name; answers with a full-screen
-  OWNED / NOT OWNED verdict. Backed by the `catalog_with_ownership` view.
+- **Public search**: `/search?q=` is one GET form (shareable URL, no client JS). A run of
+  digits — `1450`, `#1450`, `# 1450` — is an **exact `pop_number` match against the whole
+  catalog**, not just the collection, and returns every variant sharing that number;
+  anything else is a name, matched by the `search_vector` FTS index OR'd with a `pg_trgm`
+  similarity on `name`, ranked by the better of the two. Both branches sort owned matches
+  first, so the limit (60) can never hide the answer to the gift question. Verdicts come
+  from `catalog_with_ownership.owned_count` plus two `exists()` signals on the public shelf
+  rows: `hadOnce` (a `not_mine_anymore` row → "NOT OWNED · was in the collection once") and
+  `hasPublicPage` (whether `/figure/<slug>` exists to link to). ⚠️ Those subqueries are built
+  with drizzle's `exists()` and NOT with a raw `sql` template: drizzle renders an
+  interpolated column unqualified inside a SELECT-list template, which silently compiled
+  `reference_figure_id = "id"` against `owned_figures`' own `id`.
+- **Wishlist**: `/wishlist` is the `owned_count = 0` half of the same view — no table, no
+  flag. Default tab is PETER PARKER (the bucket the counters are about), ordered by box
+  number with the numberless multi-packs last; each card links to `/search?q=<number>`,
+  which is the canonical shareable answer and stays correct after the gift arrives.
+- **Stats**: `/stats` reads owned/total per bucket off the view (`PETER CANON 11/120`,
+  `ALL SPIDERS 12/180`, `WHOLE VAULT 15/247` — all computed, never constants) and the public
+  shelf for the year timeline and the country flags. The WebRadar's geometry is pure
+  arithmetic in `src/lib/radar.ts`.
 - **Quick Add** (admin): identify (scan UPC via zxing-wasm | type number | type name) →
   confirm variant (mandatory — exclusives may share a UPC) → details (place/date/status,
   story skippable) → done; box art comes from the catalog automatically.
@@ -78,9 +98,11 @@ layout depends on anything else about it.
 - **Backups**: Railway's native database backups need the Pro plan, so Hobby gets
   `scripts/backup-db.sh` (`pg_dump --format=custom`) run by hand; Phase 2 moves the same
   dump onto a schedule into object storage. See [[Environment]].
-- **Stats denominator**: the `peter` category (ADR-009), mirrored by `counts_toward_total`;
-  UI shows both "PETER PARKER 11/120" and the full catalog "19/247" with a "catalog updated"
-  date. Both numbers come from the seeded catalog and move whenever the CSVs are re-seeded.
+- **Stats denominator**: the `peter` category (ADR-009), mirrored by `counts_toward_total`.
+  The numerator everywhere is the view's `is_owned` — distinct catalog figures, so two copies
+  of #1450 count once and a figure that left the shelf counts zero. Live today: 11/120 peter,
+  12/180 spiders, 15/247 the whole vault. Every one of them is computed per request and moves
+  whenever the CSVs are re-seeded.
 
 ## External data sources
 

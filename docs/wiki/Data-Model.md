@@ -149,6 +149,10 @@ Live today: 19 rows — 15 `mine`, 4 `not_mine_anymore`, 0 without a catalog row
 
 - Powers public search verdicts AND stats from one definition.
 - Its `is_owned = false` rows ARE the wishlist — no extra table.
+- Because `owned_count` excludes `not_mine_anymore`, the view alone cannot tell "he never
+  had it" from "he had it once". Public search adds that second signal itself, as an
+  `exists()` over the public shelf rows (`src/lib/catalog-queries.ts`) — which is what turns
+  a coral `NOT OWNED YET` into `NOT OWNED · was in the collection once`.
 - `owned_count` is `SUM(quantity)` over the matching owned rows; rows whose `status` is
   `not_mine_anymore` are excluded, a NULL `status` still counts (a half-finished quick-add
   must not make a figure vanish from the collection).
