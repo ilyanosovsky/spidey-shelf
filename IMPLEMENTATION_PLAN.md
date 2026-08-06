@@ -5,8 +5,8 @@
 
 | Phase | Goal                            | Status                                                     |
 | ----- | ------------------------------- | ---------------------------------------------------------- |
-| 0     | Scaffold & CI                   | 🟡 (code done — Vercel connect pending)                    |
-| 1     | Database & admin auth           | 🟡 (auth + schema done — backups workaround pending merge) |
+| 0     | Scaffold & CI                   | 🟢                                                         |
+| 1     | Database & admin auth           | 🟢 (scheduled backups deferred → storage phase)            |
 | 2     | Reference catalog seed + images | 🟡 (catalog seeded from plan B — images blocked on rights) |
 | 3     | Owner data entry (19 figures)   | ⬜                                                         |
 | 4     | Public showcase                 | ⬜                                                         |
@@ -21,14 +21,14 @@ Governance: 🟢 [PR #1](https://github.com/ilyanosovsky/spidey-shelf/pull/1)
 
 ## Phase 0 — Scaffold & CI
 
-| Step                                                       | Status | PR  | Notes                          |
-| ---------------------------------------------------------- | ------ | --- | ------------------------------ |
-| Next.js App Router + TS + Tailwind scaffold                | 🟢     | #2  | Next 16.3, React 19.2, Node 22 |
-| Design tokens from brief → Tailwind theme + Press Start 2P | 🟢     | #2  | dark-only                      |
-| ESLint + Prettier + typecheck scripts                      | 🟢     | #2  | docs/ excluded from lint       |
-| Vitest + Testing Library setup, sample test                | 🟢     | #2  | 7 tests: slug lib + Home smoke |
-| CI becomes real (remove no-app guard in ci.yml)            | 🟢     | #2  | + format:check                 |
-| Vercel project connected, hello page deployed              | ⬜     |     | manual: connect repo in Vercel |
+| Step                                                       | Status | PR  | Notes                                                    |
+| ---------------------------------------------------------- | ------ | --- | -------------------------------------------------------- |
+| Next.js App Router + TS + Tailwind scaffold                | 🟢     | #2  | Next 16.3, React 19.2, Node 22                           |
+| Design tokens from brief → Tailwind theme + Press Start 2P | 🟢     | #2  | dark-only                                                |
+| ESLint + Prettier + typecheck scripts                      | 🟢     | #2  | docs/ excluded from lint                                 |
+| Vitest + Testing Library setup, sample test                | 🟢     | #2  | 7 tests: slug lib + Home smoke                           |
+| CI becomes real (remove no-app guard in ci.yml)            | 🟢     | #2  | + format:check                                           |
+| Vercel project connected, hello page deployed              | 🟢     |     | connected; previews build per PR; Function Region → fra1 |
 
 ## Phase 1 — Database & admin auth
 
@@ -41,13 +41,11 @@ Governance: 🟢 [PR #1](https://github.com/ilyanosovsky/spidey-shelf/pull/1)
 | Admin session: jose cookie + bcrypt env hash, login page                    | 🟢     | #3  | re-verify in every server action; `src/proxy.ts` is optimistic UX only                                                           |
 | Unit tests: slug gen, session verify                                        | 🟢     | #3  | 25 tests (7 existing + 18 new: session, authenticate, hash sanity)                                                               |
 
-⚠️ **Blocked on the owner before merge:** the local `.env` holds Railway's _internal_
-`DATABASE_URL` (`postgres.railway.internal`), which resolves only inside Railway — the
-migration therefore could not be applied to the live database yet. Both migrations were
-verified end-to-end against a throwaway Postgres 17. Paste `DATABASE_PUBLIC_URL` into
-`.env` and run `npm run db:migrate`. Same file: escape every `$` of
-`ADMIN_PASSWORD_HASH` as `\$` or Next.js's dotenv-expand eats the hash and login always
-answers `ACCESS DENIED`.
+✅ **Resolved 2026-08-06:** public access enabled on the Railway Postgres
+(`*.proxy.rlwy.net`, EU West), `.env` and Vercel now carry `DATABASE_PUBLIC_URL`, both
+migrations applied to the live DB and verified. The dotenv-expand trap (`$` in the bcrypt
+hash must be `\$` in `.env` files, raw in the Vercel dashboard) is fixed locally and
+documented in Environment.md.
 
 ## Phase 2 — Reference catalog seed + images
 
