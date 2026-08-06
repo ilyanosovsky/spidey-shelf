@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Guard: the app is scaffolded in Phase 0. Until package.json exists this job
+      # passes as a no-op so branch protection can require it from day one.
+      # Phase 0 removes this guard together with the `if:` conditions below.
+      - name: Detect app
+        id: app
+        run: echo "exists=$([ -f package.json ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        if: steps.app.outputs.exists == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        if: steps.app.outputs.exists == 'true'
+        run: npm ci
+
+      - name: Lint
+        if: steps.app.outputs.exists == 'true'
+        run: npm run lint
+
+      - name: Typecheck
+        if: steps.app.outputs.exists == 'true'
+        run: npm run typecheck
+
+      - name: Test (Vitest)
+        if: steps.app.outputs.exists == 'true'
+        run: npm run test -- --run
+
+      - name: Build
+        if: steps.app.outputs.exists == 'true'
+        run: npm run build
+
+      - name: No app yet
+        if: steps.app.outputs.exists == 'false'
+        run: echo "package.json not found — governance-only stage; checks become real in Phase 0."
