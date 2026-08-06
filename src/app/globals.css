@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+/* Spidey Shelf design tokens — docs/design/spidey-collection-design-brief.md */
+@theme {
+  --color-navy-deep: #0d2440;
+  --color-navy-panel: #123b5c;
+  --color-blue-frame: #3a8fc7;
+  --color-blue-bright: #1b41c8;
+  --color-coral: #f0614f;
+  --color-pop-green: #4caf6e;
+  --color-amber: #f5b840;
+  --color-cream: #fff6e8;
+  --color-lcd-bg: #1e3b23;
+  --color-lcd-glow: #8bc34a;
+  --color-ink-px: #101418;
+
+  --font-pixel: var(--font-press-start), monospace;
+  --font-body: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* Dark gadget world — the only theme, a deliberate product choice. */
+body {
+  background-color: var(--color-blue-bright);
+  background-image: radial-gradient(#2a52d8 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--color-cream);
+  font-family: var(--font-body);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

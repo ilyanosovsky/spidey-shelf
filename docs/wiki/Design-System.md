@@ -6,18 +6,18 @@ Mockups (Claude Design export): `docs/design/mockups/`. Reference: the movie "Sp
 
 ## Tokens
 
-| Token | HEX | Use |
-|---|---|---|
-| `--navy-deep` | `#0D2440` | map/screen background |
-| `--navy-panel` | `#123B5C` | cards, panels |
-| `--blue-frame` | `#3A8FC7` | gadget-body frames |
-| `--blue-bright` | `#1B41C8` | desktop passe-partout |
-| `--coral` | `#F0614F` | NOT OWNED, wishlist, alerts |
-| `--green` | `#4CAF6E` | OWNED, success |
-| `--amber` | `#F5B840` | primary CTA, number badges |
-| `--cream` | `#FFF6E8` | text on dark |
-| `--lcd-bg` / `--lcd-glow` | `#1E3B23` / `#8BC34A` | LCD counters |
-| `--ink-px` | `#101418` | pixel outlines, text on amber |
+| Token                     | HEX                   | Use                           |
+| ------------------------- | --------------------- | ----------------------------- |
+| `--navy-deep`             | `#0D2440`             | map/screen background         |
+| `--navy-panel`            | `#123B5C`             | cards, panels                 |
+| `--blue-frame`            | `#3A8FC7`             | gadget-body frames            |
+| `--blue-bright`           | `#1B41C8`             | desktop passe-partout         |
+| `--coral`                 | `#F0614F`             | NOT OWNED, wishlist, alerts   |
+| `--green`                 | `#4CAF6E`             | OWNED, success                |
+| `--amber`                 | `#F5B840`             | primary CTA, number badges    |
+| `--cream`                 | `#FFF6E8`             | text on dark                  |
+| `--lcd-bg` / `--lcd-glow` | `#1E3B23` / `#8BC34A` | LCD counters                  |
+| `--ink-px`                | `#101418`             | pixel outlines, text on amber |
 
 Dark theme only — a deliberate "CRT gadget" product choice.
 
