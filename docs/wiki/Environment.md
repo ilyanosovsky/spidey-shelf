@@ -79,6 +79,7 @@ per the storage ADR) so the collection is never one bad migration away from gone
 | `npm run db:generate`    | diffs `src/db/schema.ts` against the last snapshot → new SQL file in `drizzle/` |
 | `npm run db:migrate`     | applies pending migrations to `DATABASE_URL`                                    |
 | `npm run db:studio`      | opens Drizzle Studio against `DATABASE_URL`                                     |
+| `npm run db:seed`        | upserts `data/catalog/spiderman.csv` into `reference_figures` (safe to re-run)  |
 | `./scripts/backup-db.sh` | `pg_dump` of the whole database (see above)                                     |
 
 Never run `drizzle-kit push`: it diffs the live database against `schema.ts` and would drop

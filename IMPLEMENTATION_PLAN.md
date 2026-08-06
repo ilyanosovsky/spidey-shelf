@@ -7,7 +7,7 @@
 | ----- | ------------------------------- | ---------------------------------------------------------- |
 | 0     | Scaffold & CI                   | 🟡 (code done — Vercel connect pending)                    |
 | 1     | Database & admin auth           | 🟡 (auth + schema done — backups workaround pending merge) |
-| 2     | Reference catalog seed + images | ⛔ partially (pops.today reply pending — plan B ready)     |
+| 2     | Reference catalog seed + images | 🟡 (catalog seeded from plan B — images blocked on rights) |
 | 3     | Owner data entry (19 figures)   | ⬜                                                         |
 | 4     | Public showcase                 | ⬜                                                         |
 | 5     | Search, wishlist & stats        | ⬜                                                         |
@@ -51,13 +51,13 @@ answers `ACCESS DENIED`.
 
 ## Phase 2 — Reference catalog seed + images
 
-| Step                                                        | Status | PR  | Notes                                                      |
-| ----------------------------------------------------------- | ------ | --- | ---------------------------------------------------------- |
-| Decision: pops.today (plan A) vs checklist sites (plan B)   | ⛔     |     | blocked on email reply; B is default after 2 weeks silence |
-| Seed script (idempotent, CSV in repo, `source_url` per row) | ⬜     |     | Spider-Man scope ~117 core + variants                      |
-| Manual review pass (`needs_review` triage)                  | ⬜     |     |                                                            |
-| Image pipeline: fetch once → 800×800 WebP → object storage  | ⬜     |     | pixel-art placeholder until images cleared                 |
-| Storage choice: R2 vs Railway Bucket (ADR)                  | ⬜     |     |                                                            |
+| Step                                                        | Status | PR  | Notes                                                                                      |
+| ----------------------------------------------------------- | ------ | --- | ------------------------------------------------------------------------------------------ |
+| Decision: pops.today (plan A) vs checklist sites (plan B)   | 🟡     | #4  | plan B (checklist facts) seeded; pops.today reply may upgrade source + unlock images later |
+| Seed script (idempotent, CSV in repo, `source_url` per row) | 🟢     | #4  | `npm run db:seed`; 240 rows upserted on `slug`, 121 count toward the total                 |
+| Manual review pass (`needs_review` triage)                  | 🟡     | #4  | 18 rows flagged `needs_review` — owner triage still to do                                  |
+| Image pipeline: fetch once → 800×800 WebP → object storage  | ⛔     |     | blocked on image rights; `image_path` stays NULL, pixel placeholders in Phase 4 UI         |
+| Storage choice: R2 vs Railway Bucket (ADR)                  | ⬜     |     | deferred until images are cleared                                                          |
 
 ## Phase 3 — Owner data entry
 
@@ -77,12 +77,12 @@ answers `ACCESS DENIED`.
 
 ## Phase 5 — Search, wishlist & stats
 
-| Step                                                     | Status | PR  | Notes                                      |
-| -------------------------------------------------------- | ------ | --- | ------------------------------------------ |
-| Search by number/name, OWNED / NOT OWNED verdict stamp   | ⬜     |     | shareable `/search?q=1450`                 |
-| Variant disambiguation in results                        | ⬜     |     | shared numbers                             |
-| Wishlist page (NULL rows of the ownership view)          | ⬜     |     | gift-idea CTA                              |
-| Stats: LCD counters 12/117 + 12/~400, web-radar progress | ⬜     |     | honest denominator (`counts_toward_total`) |
+| Step                                                    | Status | PR  | Notes                                      |
+| ------------------------------------------------------- | ------ | --- | ------------------------------------------ |
+| Search by number/name, OWNED / NOT OWNED verdict stamp  | ⬜     |     | shareable `/search?q=1450`                 |
+| Variant disambiguation in results                       | ⬜     |     | shared numbers                             |
+| Wishlist page (NULL rows of the ownership view)         | ⬜     |     | gift-idea CTA                              |
+| Stats: LCD counters 12/121 + 12/240, web-radar progress | ⬜     |     | honest denominator (`counts_toward_total`) |
 
 ## Phase 6 — Admin Quick Add flow
 
@@ -115,10 +115,11 @@ answers `ACCESS DENIED`.
 
 ## Log
 
-| Date       | Event                                                                                                                                                                                                                                                                                                                                                     |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-08-06 | Research done: no official Funko API; pops.today best source (permission email sent); hobbyDB ruled out (ToS). Architecture v2: Vercel + Railway Postgres, no Notion, no Supabase.                                                                                                                                                                        |
-| 2026-08-06 | Design brief written; mockups built in Claude Design (docs/design).                                                                                                                                                                                                                                                                                       |
-| 2026-08-06 | Repo bootstrapped; governance PR opened.                                                                                                                                                                                                                                                                                                                  |
-| 2026-08-06 | PR #1 merged; branch protection on main (PR + CI required). Phase 0 scaffold in PR #2. SESSION_SECRET + ADMIN_PASSWORD_HASH generated into local .env.                                                                                                                                                                                                    |
-| 2026-08-06 | Phase 1 in PR #3: Drizzle schema + 2 migrations, admin session (jose cookie, bcrypt env hash, `src/proxy.ts`), 22 tests. Two env gotchas found: `.env` carries Railway's internal `DATABASE_URL` (live migration still pending), and Next.js dotenv-expand eats an unescaped bcrypt `$`. Railway backups are Pro-only → `scripts/backup-db.sh` as plan B. |
+| Date       | Event                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-08-06 | Research done: no official Funko API; pops.today best source (permission email sent); hobbyDB ruled out (ToS). Architecture v2: Vercel + Railway Postgres, no Notion, no Supabase.                                                                                                                                                                                                                                                                                       |
+| 2026-08-06 | Design brief written; mockups built in Claude Design (docs/design).                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 2026-08-06 | Repo bootstrapped; governance PR opened.                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 2026-08-06 | PR #1 merged; branch protection on main (PR + CI required). Phase 0 scaffold in PR #2. SESSION_SECRET + ADMIN_PASSWORD_HASH generated into local .env.                                                                                                                                                                                                                                                                                                                   |
+| 2026-08-06 | Phase 1 in PR #3: Drizzle schema + 2 migrations, admin session (jose cookie, bcrypt env hash, `src/proxy.ts`), 22 tests. Two env gotchas found: `.env` carries Railway's internal `DATABASE_URL` (live migration still pending), and Next.js dotenv-expand eats an unescaped bcrypt `$`. Railway backups are Pro-only → `scripts/backup-db.sh` as plan B.                                                                                                                |
+| 2026-08-06 | Phase 2 in PR #4: plan B taken (no pops.today reply yet) — 240-row Spider-Man catalog compiled from checklist facts with a `source_url` per row (ADR-008), seeded live with `npm run db:seed` (idempotent upsert on `slug`; second run: 0 inserted / 240 updated, row count unchanged). Live: 240 rows, 121 `counts_toward_total`, 18 `needs_review`, `image_path` NULL everywhere — images stay out until rights are cleared, so the storage ADR is deferred. 64 tests. |

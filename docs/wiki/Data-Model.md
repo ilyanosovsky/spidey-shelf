@@ -35,6 +35,28 @@ Indexes: unique on `slug`; btree on `pop_number` and `upc`; GIN on `search_vecto
 `product_line` (C), built with the `simple` text-search config — character names are proper
 nouns, so English stemming would only mangle them.
 
+### How the catalog is filled (Phase 2)
+
+`data/catalog/spiderman.csv` → `npm run db:seed` → `reference_figures`. What the seeder does
+with each column:
+
+- **`slug`** is computed, never authored: `figureSlug(product_line, name, pop_number)`, and if
+  that is already claimed by an earlier row, the row falls through a fixed ladder — variant
+  flags, then exclusivity, then a `-2` tail. Suffix parts already spelled out in the base are
+  skipped, so `Spider-Man Metallic` #15 becomes
+  `pop-marvel-spider-man-metallic-15-sdcc-2012`, not `…-metallic-metallic`. First row in the
+  file to claim a slug keeps it, so appending rows never rewrites an existing figure's URL.
+- **`variant_flags`** is the CSV's pipe-list (`chase|glow`) split into `text[]`; a figure with
+  no flags gets `{}`, not NULL, so queries need no null guard.
+- **`image_path` stays NULL** for every seeded row — box art is blocked on rights (ADR-008);
+  the UI shows pixel-art placeholders.
+- **`upc`, `is_vaulted` and `image_path` are never written by the seeder on update**, so
+  values added by later phases survive a re-seed.
+- The CSV's `notes` column is triage prose (which checklist corroborated the row) and has no
+  database column — it stays in the file for the human review pass.
+- The seeder **never deletes**: dropping a row from the CSV leaves the figure in the database,
+  because `owned_figures` may point at it.
+
 ## owned_figures — the collection + acquisition story
 
 | Column                           | Type                  | Notes                                               |
