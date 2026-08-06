@@ -1,27 +1,20 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { PIXEL_BUTTON_VARIANTS } from "@/components/pixel-button";
 import { figureCategoryLabel } from "@/lib/categories";
 
 /**
- * The handful of pixel-gadget pieces the admin screens share.
+ * The handful of admin-only pixel pieces (fields, chips, the admin panel).
  *
- * Deliberately not the component library — that lands in Phase 4 with the public showcase
- * (FigureCard, LCDCounter, PixelButton…). These are the minimum needed to keep the admin
- * looking like the same device, in one file, so Phase 4 can replace them wholesale.
+ * The buttons moved to `src/components/pixel-button.tsx` in Phase 4 and are re-exported
+ * here so the admin keeps its import path while the whole device shares one button.
+ * `Panel` / `LcdStat` stay admin-shaped on purpose: the public `PixelFrame` and
+ * `LCDCounter` carry showcase-sized padding and a hero counter the admin does not want.
  */
 
 /** Amber CTA / green secondary / coral danger — pressed states shift 2px down-right. */
-export const pixelButton = {
-  primary:
-    "font-pixel inline-flex items-center justify-center rounded border-2 border-ink-px bg-amber px-4 py-3 text-[10px] tracking-wider text-ink-px shadow-[4px_4px_0_var(--color-ink-px)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0_var(--color-ink-px)] disabled:opacity-60",
-  secondary:
-    "font-pixel inline-flex items-center justify-center rounded border-2 border-ink-px bg-pop-green px-4 py-3 text-[10px] tracking-wider text-ink-px shadow-[4px_4px_0_var(--color-ink-px)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0_var(--color-ink-px)] disabled:opacity-60",
-  danger:
-    "font-pixel inline-flex items-center justify-center rounded border-2 border-ink-px bg-coral px-4 py-3 text-[10px] tracking-wider text-cream shadow-[4px_4px_0_var(--color-ink-px)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0_var(--color-ink-px)] disabled:opacity-60",
-  quiet:
-    "font-pixel inline-flex items-center justify-center rounded border-2 border-blue-frame px-4 py-3 text-[10px] tracking-wider text-cream active:translate-x-[2px] active:translate-y-[2px] disabled:opacity-60",
-} as const;
+export const pixelButton = PIXEL_BUTTON_VARIANTS;
 
 export const fieldClass =
   "w-full rounded border-2 border-ink-px bg-lcd-bg px-3 py-3 text-base text-lcd-glow caret-lcd-glow outline-none focus-visible:border-blue-frame";
