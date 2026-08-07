@@ -34,6 +34,9 @@ const shelfColumns = {
   variantFlags: referenceFigures.variantFlags,
   imagePath: referenceFigures.imagePath,
   status: sql<OwnedStatus | null>`${ownedFigures.status}`,
+  // Not a visitor-facing number — it is the multiplier behind the FINANCES total (Phase 11).
+  // A duplicate is a second box, never a second card.
+  quantity: ownedFigures.quantity,
   isPublic: sql<boolean>`coalesce(${ownedFigures.isPublic}, false)`,
   acquiredAt: ownedFigures.acquiredAt,
   acquiredCity: ownedFigures.acquiredCity,

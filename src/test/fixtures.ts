@@ -21,6 +21,7 @@ export function shelfEntry(overrides: Partial<PublicShelfEntry> = {}): PublicShe
     variantFlags: [],
     imagePath: null,
     status: "mine",
+    quantity: 1,
     isPublic: true,
     acquiredAt: "2023-12-28",
     acquiredCity: "Haifa",

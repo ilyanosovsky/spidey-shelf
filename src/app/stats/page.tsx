@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { StatsScreen } from "@/components/stats-screen";
 import { getCatalogProgress } from "@/lib/catalog-queries";
 import { isAdminSession } from "@/lib/dal";
+import { getCollectionFinances } from "@/lib/ebay/market";
 import { listPublicShelf } from "@/lib/showcase-queries";
 import { normalizeCategoryProgress } from "@/lib/stats";
 
@@ -27,10 +28,15 @@ export default async function StatsPage() {
     isAdminSession(),
   ]);
 
+  // Second, because it is a sum over the rows above. Still one query and **zero** eBay calls:
+  // the FINANCES numbers come out of `price_snapshots`, which the nightly cron fills.
+  const finances = await getCollectionFinances(entries);
+
   return (
     <StatsScreen
       progress={normalizeCategoryProgress(progress)}
       entries={entries}
+      finances={finances}
       isAdmin={isAdmin}
     />
   );

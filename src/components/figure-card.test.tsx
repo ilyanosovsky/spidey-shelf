@@ -60,6 +60,31 @@ describe("FigureCard", () => {
     expect(screen.getByText("New sighting")).toBeInTheDocument();
   });
 
+  it("wears a price chip when the cache has one, and nothing when it does not", () => {
+    const entry = shelfEntry({ slug: "pop-marvel-spider-man-3" });
+
+    const { unmount } = render(<FigureCard entry={entry} />);
+    expect(screen.queryByText(/^~\$/)).not.toBeInTheDocument();
+    unmount();
+
+    render(<FigureCard entry={entry} price="~$24" />);
+    expect(screen.getByText("~$24")).toBeInTheDocument();
+  });
+
+  it("keeps the card the same height with and without the chip", () => {
+    const entry = shelfEntry({ slug: "pop-marvel-spider-man-3" });
+
+    const { container, unmount } = render(<FigureCard entry={entry} />);
+    // The category line and the chip share one row with a floor on its height, so the grid
+    // does not step when the nightly sweep fills a gap.
+    const bare = container.querySelector(".min-h-7");
+    expect(bare).not.toBeNull();
+    unmount();
+
+    const priced = render(<FigureCard entry={entry} price="~$24" />);
+    expect(priced.container.querySelectorAll(".min-h-7")).toHaveLength(1);
+  });
+
   it("survives a figure with no number and no place", () => {
     render(
       <FigureCard

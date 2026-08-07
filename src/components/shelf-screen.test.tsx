@@ -80,6 +80,29 @@ describe("ShelfScreen", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("chips the cards the price cache knows about, and only those", () => {
+    render(
+      <ShelfScreen
+        entries={SHELF_FIXTURE}
+        progress={PROGRESS}
+        filter="all"
+        prices={new Map([["pop-marvel-spider-man-last-stand-1450", "~$24"]])}
+      />,
+    );
+
+    // Twice, and both are the same figure: this shelf is short enough that every card is
+    // also in the NEW SIGHTINGS ribbon. The other four figures have no cached price and
+    // therefore no chip.
+    expect(screen.getAllByText("~$24")).toHaveLength(2);
+    expect(screen.queryAllByText(/^~\$/)).toHaveLength(2);
+  });
+
+  it("shows no chips at all when there is no cache — the current key-less default", () => {
+    render(<ShelfScreen entries={SHELF_FIXTURE} progress={PROGRESS} filter="all" />);
+
+    expect(screen.queryByText(/^~\$/)).not.toBeInTheDocument();
+  });
+
   it("still renders an empty shelf", () => {
     render(<ShelfScreen entries={[]} progress={{ owned: 0, total: 120 }} filter="all" />);
 

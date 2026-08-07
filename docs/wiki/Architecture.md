@@ -144,8 +144,9 @@ what makes Phase 9 an interim rather than a fork in the road.
   which is the canonical shareable answer and stays correct after the gift arrives.
 - **Stats**: `/stats` reads owned/total per bucket off the view (`PETER CANON 11/120`,
   `ALL SPIDERS 12/180`, `WHOLE VAULT 15/247` — all computed, never constants) and the public
-  shelf for the SIGHTINGS MAP, the year timeline and the country flags. The WebRadar's
-  geometry is pure arithmetic in `src/lib/radar.ts`; the map's is in `src/lib/geo.ts`.
+  shelf for the FINANCES section, the SIGHTINGS MAP, the year timeline and the country flags.
+  The WebRadar's geometry is pure arithmetic in `src/lib/radar.ts`; the map's is in
+  `src/lib/geo.ts`; the money is in `src/lib/finances.ts` and reads only the price cache.
 - **Quick Add** (admin): `/admin/add` is one route with six frames — `?step=` picks between
   `identify` · `scan-result` · `new` · `confirm` · `details` · `done`, and
   `/admin/collection/new` 307s here.
@@ -373,15 +374,16 @@ verified, not assumed, by patching `globalThis.fetch` around the real `getMarket
 `listPriceChips()` against the live database (zero calls recorded). The owner's production
 keyset is now configured locally and on Vercel, so the panel is live in production.
 
-| Module        | What it is                                                                   |
-| ------------- | ---------------------------------------------------------------------------- |
-| `config.ts`   | the gate. Pure over an env-shaped object, so "no keys" is a tested state     |
-| `query.ts`    | the search string and the outbound eBay URL — pure                           |
-| `parse.ts`    | Browse + OAuth response parsing, total and throw-free — pure, fixture-tested |
-| `snapshot.ts` | TTL, the refresh decision, and every formatted string on the panel — pure    |
-| `client.ts`   | `server-only`: the secret, the two fetches, the timeout, the token cache     |
-| `queries.ts`  | `server-only`: read / upsert / list `price_snapshots`                        |
-| `market.ts`   | `server-only`: the orchestration, and the only thing a page imports          |
+| Module        | What it is                                                                     |
+| ------------- | ------------------------------------------------------------------------------ |
+| `config.ts`   | the gate. Pure over an env-shaped object, so "no keys" is a tested state       |
+| `query.ts`    | the search string and the outbound eBay URL — pure                             |
+| `parse.ts`    | Browse + OAuth response parsing, total and throw-free — pure, fixture-tested   |
+| `snapshot.ts` | the three TTLs, the refresh decision, and every formatted string — pure        |
+| `refresh.ts`  | Phase 11: the cron's door and its loop, over injected deps — pure, testable    |
+| `client.ts`   | `server-only`: the secret, the two fetches, the timeout, the token cache       |
+| `queries.ts`  | `server-only`: read / upsert / list `price_snapshots`, and the sweep's targets |
+| `market.ts`   | `server-only`: the orchestration, and the only thing a page imports            |
 
 ✅ **Live-verified 2026-08-07** against the real API with the owner's production keyset:
 OAuth client-credentials → 200 (`Application Access Token`, 7200s) parsed by
@@ -395,13 +397,16 @@ wrote the first `price_snapshots` row.
 
 The free Browse tier is **5,000 calls per day**. The rules that keep us nowhere near it:
 
-- **A snapshot lasts 24 hours.** The worst realistic case is one call per figure page whose
-  snapshot has gone stale, per day. With 19 public figures that is **19 calls a day** even if
-  every one of them is viewed; the catalog is 247 rows, so the absolute ceiling if every
-  catalogued figure somehow got a page is still under 5% of the allowance.
-- **The wishlist can never trigger a lookup.** 232 cards × one call each would spend the entire
-  day's allowance in twenty-two page views. `listPriceChips()` reads the cache and stops; the
-  rule is written down and tested as `mayShowPriceChip()` rather than left as an absent `await`.
+- **The nightly sweep is the only thing that spends calls in bulk**, and it is bounded by the
+  shelf: 19 owned figures, one call each, **≤19 calls a day** (see below).
+- **A figure page still refreshes its own snapshot** when it finds one older than 24 hours,
+  which is at most another 19 calls a day and in practice near zero, because the sweep has
+  usually just been. Worst case, both together: **~38 calls, 0.76% of the allowance.**
+- **No other page can trigger a lookup — ever.** The wishlist is 232 cards, the shelf is ~20,
+  and `/stats` sums the whole collection; one call per card would spend the entire day's
+  allowance in twenty-two wishlist views. `listPriceChips()` and `getCollectionFinances()`
+  read the cache and stop, and the rule is written down and tested (`mayShowPriceChip()`)
+  rather than left as an absent `await`.
 - **One attempt, no retries** (the same rule the UPCitemdb client follows) and a **5-second
   budget for the whole refresh**, token included. A 429 answered by trying again is how a quota
   disappears in an afternoon.
@@ -419,6 +424,82 @@ put there, and a public showcase does not narrate its own integrations. Nothing 
 throws: it runs inside the render of `/figure/[slug]`, and a rejected promise would replace a
 figure's page with an error boundary because a price could not be loaded.
 
+## The nightly price sweep (Phase 11)
+
+`vercel.json` → `0 6 * * *` → `GET /api/cron/refresh-prices`. One scheduled job, and it
+exists so that **no page ever fetches a price**.
+
+That rule is the whole architecture of Phase 11. Phase 8 could let a figure page pay for its
+own lookup because a figure page is one figure; Phase 11 puts a price on every card of the
+shelf and a total on `/stats`, and those are twenty and nineteen figures on one screen. The
+arithmetic is not close: one visitor to the home page would cost twenty Browse calls, and the
+free tier would be gone by lunchtime. So the cache became the source of truth for every page
+and the cron became the only thing that fills it.
+
+```
+06:00 UTC   Vercel ──Authorization: Bearer $CRON_SECRET──► /api/cron/refresh-prices
+                                                             │ isCronAuthorized()   401 otherwise
+                                                             │ isEbayConfigured()   {skipped} otherwise
+                                                             ▼
+                                            listRefreshTargets()   19 owned figures + their snapshots
+                                                             │
+                                            for each, sequentially, one attempt:
+                                              older than 12h? ──no──► skippedFresh
+                                                    │ yes
+                                                    ▼
+                                              fetchMarketSignal() ──not ok──► failed (never retried)
+                                                    │ ok
+                                                    ▼
+                                              upsertPriceSnapshot()  ──► refreshed
+                                                             │
+                                                             ▼
+                                          {checked, refreshed, failed, skippedFresh}
+```
+
+- **Daily is the ceiling on Hobby**, and Vercel schedules a Hobby cron anywhere inside a
+  **one-hour window** — 06:00 is a request, not a promise. Two consecutive runs can therefore
+  be 25 hours apart, which is why the two TTLs either side of 24 hours exist:
+  `PRICE_REFRESH_AFTER_MS` is **12h** (so a daily run always refreshes everything it looks at,
+  and never finds something already expired) and `PRICE_DISPLAY_TTL_MS` is **48h** (so a chip
+  or a total is not blanked by an hour of scheduling drift, or by one failed night).
+  `PRICE_SNAPSHOT_TTL_MS` stays 24h and stays the figure page's rule.
+- **The door is in the handler.** `Authorization: Bearer $CRON_SECRET`, which Vercel attaches
+  by itself whenever that variable exists on the project. A missing or blank secret authorizes
+  **nobody** — the other reading turns a forgotten environment variable into a public endpoint
+  that spends the day's allowance for whoever finds the URL. Same lesson as CVE-2025-29927: the
+  check lives in the handler, not in `src/proxy.ts`, which does not cover `/api/*` anyway.
+- **No keys, no work.** `isEbayConfigured()` false → `200 {"skipped":"ebay-not-configured"}`
+  without touching the database, so a deployment with prices switched off does not have a cron
+  job that fails every morning at six.
+- **It reports counts and never listings.** The URL is reachable from the internet with the
+  right header; a price feed is not what a cron log is for.
+- **The shelf, not the catalog.** `listRefreshTargets()` joins `owned_figures` INNER, so the
+  232 wishlist figures are never swept — a wishlist chip is still only ever a figure page's
+  leftovers. Every status is swept, `not_mine_anymore` included: those figures still have
+  pages, and the FINANCES rules about who counts live in `countsTowardValue()`, not here.
+- **A 50-second budget** inside a 60-second `maxDuration`. Nineteen figures at eBay's 5-second
+  ceiling is 95 seconds in the worst imaginable case, and a function killed at its limit
+  reports nothing at all — not even the figures it did refresh, which are written one at a
+  time as they arrive.
+
+### FINANCES on `/stats`
+
+`src/lib/finances.ts` is pure arithmetic over the same `PublicShelfEntry[]` every other view
+of the collection uses, plus the snapshots. Three claims it has to be able to defend:
+
+- **only `status = 'mine'` counts** — a figure that left the shelf keeps its card, its story
+  and its place in the counters, but it is not part of what the shelf is worth today. Neither
+  is a row with no status: that is a half-finished quick-add. (Deliberately stricter than
+  `catalog_with_ownership.owned_count`, which does count a NULL status — that view answers
+  "is it collected", this answers "what is on the shelf".)
+- **quantity multiplies** — two boxes of #1450 are one card and one price, and two boxes'
+  worth of money;
+- **one currency, never averaged**, and figures with no snapshot are excluded from the total
+  and surfaced as coverage (`PRICED: 15 / 15`) rather than counted as free.
+
+Zero priced figures renders **nothing at all** — the same invisibility rule MARKET SIGNAL
+follows, for the same reason: `TOTAL VAULT VALUE: $0` is worse than silence.
+
 ## External data sources
 
 | Source                                                | Role                                                 | Status                                     |
@@ -427,7 +508,7 @@ figure's page with an error boundary because a price could not be loaded.
 | UploadThing (free 2 GB)                               | where the owner's own box-art uploads live           | **live (phase 9)** — ADR-011, 0 files yet  |
 | Checklist sites (funkypriceguide 117, Pop Shop Guide) | plan-B catalog seed                                  | **seeded (plan B)** — 240 rows, ADR-008    |
 | UPCitemdb (free 100 req/day)                          | scan-time UPC fallback                               | **live (phase 7)** — 1 call/scan, no key   |
-| eBay Browse API (free 5k req/day)                     | live prices                                          | **live** (verified 2026-08-07)             |
+| eBay Browse API (free 5k req/day)                     | live prices                                          | **live** — nightly cron since phase 11     |
 | Natural Earth 110m land (CC0)                         | the SIGHTINGS MAP's landmass                         | **vendored (phase 8)** — derived once      |
 | hobbyDB / Funko official                              | —                                                    | ruled out (ToS / no API)                   |
 

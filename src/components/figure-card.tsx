@@ -5,6 +5,7 @@ import { formatPlace, formatPopNumber, formatSightingDate } from "@/lib/format";
 import { hasLeftTheShelf, type PublicShelfEntry } from "@/lib/showcase";
 
 import { BoxArt } from "./box-art";
+import { PriceChip } from "./market-signal";
 import { categoryAccent } from "./pixel-spider-art";
 
 /**
@@ -23,10 +24,21 @@ import { categoryAccent } from "./pixel-spider-art";
 export function FigureCard({
   entry,
   isNew = false,
+  price,
   className = "",
 }: {
   entry: PublicShelfEntry;
   isNew?: boolean;
+  /**
+   * `~$24` from the price cache (Phase 11), or nothing.
+   *
+   * **The card never causes a lookup.** The value comes from `listPriceChips()`, which reads
+   * `price_snapshots` and stops; the nightly cron is what keeps it current. Absent is a
+   * normal state — no keys, a figure the sweep has not reached yet, or a price older than
+   * the display window — and the row it sits in keeps its height either way, so a shelf
+   * where half the figures are priced does not look ragged.
+   */
+  price?: string;
   className?: string;
 }) {
   const gone = hasLeftTheShelf(entry);
@@ -74,12 +86,20 @@ export function FigureCard({
         {formatSightingDate(entry.acquiredAt)}
       </p>
 
-      <p
-        className="font-pixel mt-3 text-[10px] leading-relaxed tracking-wider"
-        style={{ color: accent }}
-      >
-        {figureCategoryLabel(entry.category)}
-      </p>
+      {/*
+       * The category line and the price chip share one row with a fixed minimum height, so
+       * a priced card and an unpriced one are exactly as tall as each other and the grid
+       * does not step when the nightly sweep fills a gap.
+       */}
+      <div className="mt-3 flex min-h-7 flex-wrap items-center justify-between gap-2">
+        <p
+          className="font-pixel text-[10px] leading-relaxed tracking-wider"
+          style={{ color: accent }}
+        >
+          {figureCategoryLabel(entry.category)}
+        </p>
+        {price ? <PriceChip label={price} /> : null}
+      </div>
 
       {gone ? (
         <p className="font-pixel mt-2 inline-block rounded border-2 border-amber px-2 py-1 text-[10px] leading-relaxed tracking-wider text-amber">

@@ -1,5 +1,6 @@
 import { ShelfScreen } from "@/components/shelf-screen";
 import { isAdminSession } from "@/lib/dal";
+import { listPriceChips } from "@/lib/ebay/market";
 import { getShelfProgress, listPublicShelf } from "@/lib/showcase-queries";
 import { parseShelfFilter } from "@/lib/showcase";
 
@@ -24,11 +25,24 @@ export default async function Home({
 
   // `isAdminSession()` is the nav's CONSOLE tab and nothing else — a verified signature,
   // deduped by React `cache()` with any other session read on this request.
-  const [entries, progress, isAdmin] = await Promise.all([
+  //
+  // `listPriceChips()` is a cache read that **cannot** cause an eBay call (Phase 11): the
+  // nightly cron at `/api/cron/refresh-prices` is what fills `price_snapshots`, and this
+  // page spends it. Without keys it returns an empty map without querying at all.
+  const [entries, progress, prices, isAdmin] = await Promise.all([
     listPublicShelf(),
     getShelfProgress(),
+    listPriceChips(),
     isAdminSession(),
   ]);
 
-  return <ShelfScreen entries={entries} progress={progress} filter={filter} isAdmin={isAdmin} />;
+  return (
+    <ShelfScreen
+      entries={entries}
+      progress={progress}
+      filter={filter}
+      prices={prices}
+      isAdmin={isAdmin}
+    />
+  );
 }

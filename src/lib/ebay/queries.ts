@@ -1,11 +1,12 @@
 import "server-only";
 
-import { eq, gt } from "drizzle-orm";
+import { asc, eq, gt } from "drizzle-orm";
 
 import { db } from "@/db";
-import { priceSnapshots, referenceFigures } from "@/db/schema";
+import { ownedFigures, priceSnapshots, referenceFigures } from "@/db/schema";
 
 import { type MarketSignal } from "./parse";
+import { type RefreshTarget } from "./refresh";
 import { PRICE_SNAPSHOT_TTL_MS, type StoredSnapshot } from "./snapshot";
 
 /**
@@ -130,4 +131,59 @@ export async function listFreshPriceSnapshots(
     if (stored) found.set(row.slug, stored);
   }
   return found;
+}
+
+/**
+ * Everything the nightly sweep is allowed to spend a call on (Phase 11).
+ *
+ * **The shelf, not the catalog.** The join is `owned_figures` INNER, so the 232 figures
+ * nobody owns are not in this list and never will be: a wishlist card's price is a nice
+ * extra, and 247 calls a night to provide it is how a free tier stops being free. The 19
+ * figures on the shelf are the ones the shelf grid, `/stats` and the figure pages all
+ * actually print a number for.
+ *
+ * Every status is included, `not_mine_anymore` too. A figure that left the shelf still has a
+ * page, still shows a MARKET SIGNAL panel, and refreshing it costs the same as skipping it
+ * would save — one call out of five thousand. The FINANCES total is where the status rule
+ * lives (`countsTowardValue()`), not here.
+ *
+ * `DISTINCT` on the figure id, because two copies of #1450 are two shelf rows and one price.
+ * Ordered by slug so a sweep that runs out of time runs out in the same place twice, and the
+ * figures it never reaches are not the same ones every night by accident of insertion order.
+ */
+export async function listRefreshTargets(): Promise<RefreshTarget[]> {
+  const rows = await db
+    .selectDistinct({
+      figureId: referenceFigures.id,
+      slug: referenceFigures.slug,
+      name: referenceFigures.name,
+      popNumber: referenceFigures.popNumber,
+      currency: priceSnapshots.currency,
+      minCents: priceSnapshots.minCents,
+      medianCents: priceSnapshots.medianCents,
+      listingCount: priceSnapshots.listingCount,
+      fetchedAt: priceSnapshots.fetchedAt,
+    })
+    .from(ownedFigures)
+    .innerJoin(referenceFigures, eq(ownedFigures.referenceFigureId, referenceFigures.id))
+    .leftJoin(priceSnapshots, eq(priceSnapshots.referenceFigureId, referenceFigures.id))
+    .where(eq(ownedFigures.isPublic, true))
+    .orderBy(asc(referenceFigures.slug));
+
+  return rows.map((row) => ({
+    figureId: row.figureId,
+    slug: row.slug,
+    name: row.name,
+    popNumber: row.popNumber,
+    snapshot:
+      row.fetchedAt === null
+        ? null
+        : toStored({
+            currency: row.currency ?? "",
+            minCents: row.minCents,
+            medianCents: row.medianCents,
+            listingCount: row.listingCount ?? 0,
+            fetchedAt: row.fetchedAt,
+          }),
+  }));
 }

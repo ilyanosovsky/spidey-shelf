@@ -223,9 +223,39 @@ Live today: 19 rows — 15 `mine`, 4 `not_mine_anymore`, 0 without a catalog row
 | listing_count       | int not null default 0       | how many listings the median covers   |
 | fetched_at          | timestamptz not null         | the TTL is measured from here         |
 
-Added by `drizzle/0004_price_snapshots.sql` (applied to the live database; 0 rows, because the
-owner has no eBay keys yet). Index on `fetched_at`, which is what the wishlist's "fresh
-snapshots only" read filters on.
+Added by `drizzle/0004_price_snapshots.sql` (applied to the live database). Index on
+`fetched_at`, which is what every "fresh snapshots only" read filters on. **19 rows live** —
+one per owned figure, written by the nightly sweep (Phase 11).
+
+### It feeds the whole site now, not just one panel (Phase 11)
+
+Phase 8 wrote this table from a figure page and read it back on that page and on the wishlist.
+Phase 11 inverted it: **`/api/cron/refresh-prices` writes it once a night, and every page
+reads it and stops.** No schema change — the table was already a per-figure cache with a
+24-hour TTL, which is exactly what a daily sweep produces — but three readers were added:
+
+| Reader                     | What it does                                                            |
+| -------------------------- | ----------------------------------------------------------------------- |
+| `/` (the shelf grid)       | an amber `~$24` chip per card, from `listPriceChips()`                  |
+| `/stats` (FINANCES)        | the total, the dearest and the cheapest, from `getCollectionFinances()` |
+| `/api/cron/refresh-prices` | the only writer at scale — `listRefreshTargets()` then one upsert each  |
+
+Three TTLs now read the same `fetched_at`, and the gaps between them are deliberate:
+
+| Constant                 | Value | Who applies it                                                |
+| ------------------------ | ----- | ------------------------------------------------------------- |
+| `PRICE_REFRESH_AFTER_MS` | 12h   | the cron — so a daily run always refreshes what it looks at   |
+| `PRICE_SNAPSHOT_TTL_MS`  | 24h   | a figure page deciding whether to spend a call on itself      |
+| `PRICE_DISPLAY_TTL_MS`   | 48h   | the cache-only readers — a chip or a total may be a day stale |
+
+A Hobby cron fires inside a one-hour window, so two runs can be 25 hours apart; holding the
+cache-only readers to 24 hours would blank every chip and the whole FINANCES section for that
+drift, and for a whole day after any failed sweep. Yesterday's number with a `~` in front of
+it is the honest answer there; no number is not.
+
+`owned_figures.quantity` joined the public shelf query in the same phase — not to be rendered
+(two boxes are one card everywhere a count appears) but because the FINANCES total multiplies
+by it.
 
 - **It is a cache, and it is the only table here that is.** `TRUNCATE price_snapshots` loses
   nothing the collection is about, which is exactly why it is the only table with

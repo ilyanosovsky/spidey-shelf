@@ -227,6 +227,41 @@ fifth screen. Outlined amber-on-navy (8.79∶1) when it is elsewhere, filled ink
 follow. The same nav renders on `/admin`, `/admin/collection`, the edit screen and all six
 Quick Add frames, so the shelf is one tap from anywhere in the back office.
 
+Added in Phase 11 (what the shelf is worth):
+
+| Component       | Props                             | Notes                                                                                                                                                                                      |
+| --------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `FinancesPanel` | `finances` (`CollectionFinances`) | the FINANCES section of `/stats`: coral banner, an LCD `~$261 / TOTAL VAULT VALUE` hero, `MOST PRIZED` and `EASIEST FIND` cards, the coverage line and the fine print. Renders or does not |
+| `FigureCard`    | + `price?`                        | an optional amber `~$24` chip, the same `PriceChip` the wishlist uses, sharing a `min-h-7` row with the category label so a priced card and an unpriced one are the same height            |
+
+### The FINANCES section (`/stats`, Phase 11)
+
+It sits **directly under VAULT STATUS and above WEB RADAR**: "how far in?" and "what is it
+worth?" are the first two questions anybody asks about a collection, both are LCD numbers
+about the whole shelf, and everything below them is a picture of one slice of it.
+
+| Piece          | What                                                                                                             |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| the banner     | coral `ToothedBanner` — `FINANCES`                                                                               |
+| the hero       | full-size `LCDCounter`: `~$261` over `TOTAL VAULT VALUE`                                                         |
+| the two ends   | `MOST PRIZED` / `EASIEST FIND` — an 80/96px `BoxArt`, the name, `~$30`, the whole card a link to the figure page |
+| the coverage   | `PRICED: 15 / 15`, plus `· MORE AFTER THE NEXT NIGHTLY SWEEP` while it is partial                                |
+| the fine print | `MARKET_COPY.disclaimer`, **imported** rather than retyped — the same sentence the MARKET SIGNAL panel carries   |
+| nothing at all | no keys, no cached price, nothing owned → the section does not exist. Same rule as MARKET SIGNAL                 |
+
+Two details are the honesty of the whole screen rather than decoration. **The `~` is on every
+number**, including the total, because a sum of medians of asking prices is an estimate of an
+estimate. **The coverage line is not optional** — a total over seven of fifteen figures that
+does not say so is a total that lies, and the sentence about the next sweep is what turns a
+gap into a "not yet" instead of a "never".
+
+One priced figure renders **one** card: the same figure under both labels would read as a bug
+rather than as a small collection.
+
+Phase 11 wording lives in `FINANCE_COPY` (`src/lib/finances.ts`), the same closed-table rule
+as the others: `FINANCES` · `TOTAL VAULT VALUE` · `MOST PRIZED` · `EASIEST FIND` ·
+`PRICED: 15 / 15` · `MORE AFTER THE NEXT NIGHTLY SWEEP`.
+
 ### The expanded SIGHTINGS MAP (Phase 10)
 
 A `⤢ EXPAND` chip sits in the panel's top-right and the whole map is a button
