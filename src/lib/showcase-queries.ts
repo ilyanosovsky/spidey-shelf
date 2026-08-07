@@ -32,6 +32,7 @@ const shelfColumns = {
   productLine: referenceFigures.productLine,
   exclusivity: referenceFigures.exclusivity,
   variantFlags: referenceFigures.variantFlags,
+  imagePath: referenceFigures.imagePath,
   status: sql<OwnedStatus | null>`${ownedFigures.status}`,
   isPublic: sql<boolean>`coalesce(${ownedFigures.isPublic}, false)`,
   acquiredAt: ownedFigures.acquiredAt,

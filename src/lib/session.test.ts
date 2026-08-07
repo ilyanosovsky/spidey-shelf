@@ -4,10 +4,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  readCookie,
   SESSION_COOKIE_NAME,
   SESSION_MAX_AGE_SECONDS,
   sessionCookieOptions,
   signSessionToken,
+  verifySessionFromCookieHeader,
   verifySessionToken,
 } from "./session";
 
@@ -75,6 +77,55 @@ describe("session tokens", () => {
       await expect(verifySessionToken("anything")).resolves.toBeNull();
     } finally {
       if (previous !== undefined) process.env.SESSION_SECRET = previous;
+    }
+  });
+});
+
+describe("readCookie", () => {
+  it("finds the session among its neighbours", () => {
+    expect(readCookie("a=1; spidey_session=abc.def.ghi; b=2", SESSION_COOKIE_NAME)).toBe(
+      "abc.def.ghi",
+    );
+    expect(readCookie("spidey_session=only", SESSION_COOKIE_NAME)).toBe("only");
+  });
+
+  it("does not match a cookie whose name merely contains ours", () => {
+    expect(readCookie("not_spidey_session=x", SESSION_COOKIE_NAME)).toBeUndefined();
+    expect(readCookie("spidey_session_old=x", SESSION_COOKIE_NAME)).toBeUndefined();
+  });
+
+  it("keeps `=` inside the value", () => {
+    expect(readCookie("spidey_session=a=b=c", SESSION_COOKIE_NAME)).toBe("a=b=c");
+  });
+
+  it("survives a missing or junk header", () => {
+    expect(readCookie(null, SESSION_COOKIE_NAME)).toBeUndefined();
+    expect(readCookie("", SESSION_COOKIE_NAME)).toBeUndefined();
+    expect(readCookie("garbage", SESSION_COOKIE_NAME)).toBeUndefined();
+  });
+});
+
+describe("verifySessionFromCookieHeader", () => {
+  it("is the same verification, read off a raw header", async () => {
+    const previous = process.env.SESSION_SECRET;
+    process.env.SESSION_SECRET = SECRET;
+
+    try {
+      const token = await signSessionToken({ sub: "admin", role: "admin" });
+
+      await expect(
+        verifySessionFromCookieHeader(`theme=dark; ${SESSION_COOKIE_NAME}=${token}`),
+      ).resolves.toEqual({ sub: "admin", role: "admin" });
+
+      // No cookie, a foreign cookie and a forged token all fail closed.
+      await expect(verifySessionFromCookieHeader(null)).resolves.toBeNull();
+      await expect(verifySessionFromCookieHeader("theme=dark")).resolves.toBeNull();
+      await expect(
+        verifySessionFromCookieHeader(`${SESSION_COOKIE_NAME}=not-a-jwt`),
+      ).resolves.toBeNull();
+    } finally {
+      if (previous === undefined) delete process.env.SESSION_SECRET;
+      else process.env.SESSION_SECRET = previous;
     }
   });
 });

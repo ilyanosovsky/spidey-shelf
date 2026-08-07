@@ -7,7 +7,8 @@ import { LCDCounter } from "@/components/lcd-counter";
 import { MarketSignal } from "@/components/market-signal";
 import { PixelButtonLink } from "@/components/pixel-button";
 import { PixelFrame } from "@/components/pixel-frame";
-import { categoryAccent, PixelSpiderArt } from "@/components/pixel-spider-art";
+import { BoxArt } from "@/components/box-art";
+import { categoryAccent } from "@/components/pixel-spider-art";
 import { PublicNav } from "@/components/public-nav";
 import { ToothedBanner } from "@/components/toothed-banner";
 import { figureCategoryLabel } from "@/lib/categories";
@@ -86,11 +87,16 @@ export default async function FigurePage({ params }: { params: Promise<{ slug: s
       <PixelFrame as="header" className="p-5" accent={accent}>
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
           <div className="mx-auto w-full max-w-[260px] sm:mx-0 sm:w-2/5 sm:shrink-0">
-            <PixelSpiderArt
+            <BoxArt
               slug={current.slug}
+              name={current.name}
               category={current.category}
               popNumber={current.popNumber}
+              imagePath={current.imagePath}
               size="hero"
+              // The hero is the page's LCP element, and it is capped at 260px by its column.
+              sizes="(min-width: 640px) 260px, 100vw"
+              priority
             />
           </div>
 

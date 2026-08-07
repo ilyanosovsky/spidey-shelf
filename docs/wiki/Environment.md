@@ -24,14 +24,47 @@
 > hash does not look like bcrypt, instead of silently answering `ACCESS DENIED`. Values
 > pasted into the Vercel dashboard need no escaping.
 
-### Needed from Phase 2 (images)
+### Needed from Phase 9 (box art the owner uploads)
 
-| Var                                                                      | What                                                                            | Where                                |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------- | ------------------------------------ |
-| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | object storage for normalized box art (only used by the one-time seed pipeline) | local `.env` (pipeline runs locally) |
-| `NEXT_PUBLIC_IMAGE_BASE_URL`                                             | public base URL of the bucket (custom domain)                                   | local · Vercel                       |
+| Var                 | What                                                        | Where                 |
+| ------------------- | ----------------------------------------------------------- | --------------------- |
+| `UPLOADTHING_TOKEN` | the **v7 token** from uploadthing.com → your app → API Keys | local `.env` · Vercel |
 
-If ADR picks Railway Bucket instead of R2, the S3-compatible equivalents replace the `R2_*` set.
+**One variable, and it must be the v7 one.** It is a base64 blob carrying the API key, the
+app id and the region together, which is why it replaces uploadthing v6's
+`UPLOADTHING_SECRET` + `UPLOADTHING_APP_ID` pair on its own. Verified against
+`uploadthing@7.7.4`: with only `UPLOADTHING_SECRET` set, `new UTApi()` fails with
+`Missing token. Please set the UPLOADTHING_TOKEN environment variable…`. If a
+`UPLOADTHING_SECRET` is still lying around in a `.env`, **nothing reads it** — delete it.
+
+> ⚠️ **Add `UPLOADTHING_TOKEN` to Vercel (Production + Preview) and redeploy.** Without it the
+> upload route errors and `onUploadComplete` can never write `image_path`; every other part of
+> the site is unaffected, so the failure looks like "the upload button does nothing" rather
+> than like a missing env var.
+
+No `$`-escaping worry — the token is base64 (alphanumeric plus `=` padding).
+
+The app's CDN host is **pinned in `next.config.ts`** as `si4zn51deh.ufs.sh`, not read from an
+env var. The app id is public — it is in the URL of every image the site serves — and pinning
+it rather than allowing `*.ufs.sh` keeps `/_next/image` from being an open optimizer proxy for
+every UploadThing account on the internet, which on Hobby's 5,000 transformations/month is a
+bill somebody else could run up. **If the UploadThing app is ever recreated, that string and
+the token change together.**
+
+Budget: the free tier is **2 GB**, and a normalized figure is 100–250 KB — roughly 10,000
+figures against a 247-row catalog. Replacing a figure's art deletes the file it replaces, so
+the bucket holds at most one file per figure.
+
+### Deferred: the pops.today pipeline (ADR-004)
+
+| Var                                                                      | What                                                               | Where                                |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------ |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | object storage for a bulk box-art pipeline that does not exist yet | local `.env` (pipeline runs locally) |
+| `NEXT_PUBLIC_IMAGE_BASE_URL`                                             | public base URL of that bucket (custom domain)                     | local · Vercel                       |
+
+**Nothing reads these today.** They stay in `.env.example` because the pipeline is still the
+plan if image rights are ever cleared (ADR-011 is explicitly an interim); until then, box art
+comes from the owner and lives in UploadThing.
 
 ### Needed for Phase 7 (scanner): nothing
 
@@ -106,8 +139,12 @@ CI runs unit tests without a real database (mocked db); no DB secrets in CI.
 2. **Railway**: create Postgres service; copy `DATABASE_PUBLIC_URL` into `DATABASE_URL`
    (Vercel connects from outside Railway, so the internal host will not do).
 3. **Vercel**: import the GitHub repo (personal account — Hobby can't use org repos);
-   add env vars above for Production + Preview.
-4. **Secrets hygiene**: generate `SESSION_SECRET` with `openssl rand -base64 32`; generate
+   add env vars above for Production + Preview. **`UPLOADTHING_TOKEN` is the one Phase 9
+   added** — without it the BOX ART panel cannot save anything.
+4. **UploadThing**: create the app at uploadthing.com, copy the **V7 token** (not the v6
+   `sk_live_…` secret) into `UPLOADTHING_TOKEN`. If the app is recreated, update
+   `UPLOADTHING_CDN_HOST` in `next.config.ts` to the new `<app-id>.ufs.sh` in the same PR.
+5. **Secrets hygiene**: generate `SESSION_SECRET` with `openssl rand -base64 32`; generate
    `ADMIN_PASSWORD_HASH` with `node scripts/hash-password.mjs 'your password'`.
 
 ## Backups — plan B

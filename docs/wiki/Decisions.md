@@ -134,3 +134,50 @@ button that always missed.
   first, one call per scan, no retries on 429, a 5s timeout, and every failure rendered as a
   sentence with the keyboard next to it. A retry loop would burn a day's quota in an
   afternoon and buy nothing the owner could not type in five seconds.
+
+## ADR-011 · The owner uploads the box art himself (UploadThing) — supersedes ADR-004's "no uploads"
+
+**2026-08-07 · accepted** (owner's call, decided in chat). ADR-004 planned one pipeline —
+fetch box art once, normalize with sharp, put it in a bucket — and ADR-008 then blocked it on
+image rights: pops.today, the source that has the art, has not answered the permission email
+sent 2026-08-06. Nine months of a catalog with drawn placeholders is not a plan, so the
+interim source is **the owner**: he uploads one image per figure from
+`/admin/collection/[id]/edit`, and `reference_figures.image_path` points at it.
+
+- **"No user uploads" is not the rule being broken.** ADR-004's clause was about visitors and
+  about the add flow never demanding a photo — both still hold. There is exactly one account
+  on this site, it belongs to the owner, and the upload lives on an admin screen behind the
+  same jose session everything else is. What changed is only _who supplies the file_, from a
+  scraper we are not allowed to run to the person who owns the shelf.
+- **The uniform look survives, because normalization moved rather than disappeared.** The
+  browser does what sharp was going to do: decode → **contain** (never crop — a Funko box is
+  portrait, and covering a square with it beheads every figure) → centre on `--navy-panel`
+  → 800×800 → WebP q0.8, about 100–250 KB. So the grid still holds one shape and one
+  background, and a phone on a shop's wifi uploads 150 KB instead of a 4 MB photo. The
+  geometry is pure and unit-tested (`src/lib/box-art.ts`); only the canvas call is not.
+- **Client-side, because there is no server to do it on.** Vercel Hobby functions are not
+  where a 12 MP decode belongs, `sharp` is not in the deployed bundle, and UploadThing stores
+  whatever it is handed. The route's 4 MB / one-file / image-only limits are the backstop for
+  a hand-built POST, not the plan.
+- **UploadThing over R2/Railway Bucket**, and the storage sub-ADR ADR-008 deferred is
+  answered by this one for the interim. R2 would need presigned-URL plumbing, a CORS policy
+  and an account the owner does not have; UploadThing is a file router with the auth check
+  where we already put auth checks, and the free tier is 2 GB — roughly **10,000 normalized
+  figures** against a 247-row catalog, so the ceiling is not a constraint this project can
+  reach. It costs one dependency pair (`uploadthing` + `@uploadthing/react`, 47 KB of client
+  JavaScript **on the admin edit route only**).
+- **The session is re-verified inside `.middleware()`**, before a presigned URL exists — the
+  CVE-2025-29927 rule, applied to a Route Handler that `src/proxy.ts` does not even cover.
+  The browser's upload action must additionally be same-origin; UploadThing's server callback
+  is exempted from that check because it carries no `Origin` and is authenticated by HMAC
+  signature instead. Getting that wrong silently breaks `onUploadComplete`, which is the only
+  thing that writes `image_path`.
+- **A replaced file is deleted, and the order is deliberate.** `image_path` is written first,
+  the superseded key deleted second: a crash between them leaves one orphan in a 2 GB bucket,
+  while the other order leaves a figure pointing at a 404. A delete failure is logged and
+  swallowed — it must never cost the owner the upload he just did.
+- **Reversible, which is the whole point.** If pops.today (or anyone) grants image rights
+  later, the ADR-004 pipeline writes the same column and simply overwrites `image_path`; the
+  renderer (`BoxArt`) already treats an absolute URL and a future bucket path as the same
+  thing, and `PixelSpiderArt` stays as both the empty state and the `onError` fallback.
+  Nothing has to be torn down first — the same property ADR-008 was written to preserve.

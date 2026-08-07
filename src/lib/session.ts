@@ -73,6 +73,39 @@ export async function verifySessionToken(
 }
 
 /**
+ * The session cookie's value, straight out of a raw `Cookie:` header.
+ *
+ * Route handlers can reach `next/headers`' `cookies()`, but UploadThing's file router runs
+ * its middleware inside its own async runtime, and a request-scoped API that may or may not
+ * survive that is not something to gate an upload on. The header is right there on the
+ * `Request`, so the router reads it directly — and because this is a plain string parse, the
+ * "is this the admin?" question stays unit-testable without a Next.js request at all.
+ *
+ * Splits on `;` only: cookie values are percent-encoded by the cookie store, so a `;` cannot
+ * appear inside one, and the first `=` wins because a base64url JWT never contains `=` in the
+ * middle but its padding could in principle sit at the end.
+ */
+export function readCookie(header: string | null | undefined, name: string): string | undefined {
+  if (!header) return undefined;
+
+  for (const part of header.split(";")) {
+    const index = part.indexOf("=");
+    if (index < 0) continue;
+    if (part.slice(0, index).trim() !== name) continue;
+    return part.slice(index + 1).trim();
+  }
+
+  return undefined;
+}
+
+/** The admin check for a bare `Request` — same verification, no `next/headers`. */
+export async function verifySessionFromCookieHeader(
+  header: string | null | undefined,
+): Promise<SessionPayload | null> {
+  return verifySessionToken(readCookie(header, SESSION_COOKIE_NAME));
+}
+
+/**
  * Cookie attributes for the session cookie.
  *
  * `secure` is on in production only: Safari refuses Secure cookies over plain http, which

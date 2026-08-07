@@ -32,6 +32,11 @@ export interface PublicShelfEntry {
   productLine: string | null;
   exclusivity: string | null;
   variantFlags: string[] | null;
+  /**
+   * `reference_figures.image_path` — an owner-uploaded 800×800 WebP, or NULL (ADR-011).
+   * A public column: the picture is the one catalog field a visitor is here to look at.
+   */
+  imagePath: string | null;
   /** `mine` / `not_mine_anymore`; NULL rows predate the status column. */
   status: OwnedStatus | null;
   /** The owner's staging switch. Only `true` rows are ever rendered. */

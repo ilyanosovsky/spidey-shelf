@@ -158,6 +158,8 @@ export interface AdminCatalogFigure {
   exclusivity: string | null;
   variantFlags: string[] | null;
   releaseYear: number | null;
+  /** Owner-uploaded box art (ADR-011), or NULL. */
+  imagePath: string | null;
   needsReview: boolean;
   ownedCount: number;
 }

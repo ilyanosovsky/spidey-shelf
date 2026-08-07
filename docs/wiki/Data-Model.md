@@ -22,7 +22,7 @@ names; Drizzle exposes them camelCased.
 | variant_flags           | text[]               | chase, glow, metallic, flocked, 10inch…    |
 | is_vaulted              | bool                 |                                            |
 | upc                     | text, indexed        | scanner target; exclusives may share it    |
-| image_path              | text                 | normalized 800×800 WebP in bucket          |
+| image_path              | text                 | 800×800 WebP — see below                   |
 | counts_toward_total     | bool default true    | THE stats denominator switch               |
 | source, source_url      | text                 | provenance per row                         |
 | needs_review            | bool default false   | seed triage                                |
@@ -59,6 +59,34 @@ future one-off exception stays possible without a migration. Live today: 120 `pe
 
 The labels above are the single source of UI copy, exported from `src/lib/categories.ts`
 (`FIGURE_CATEGORY_LABELS`) — see Design-System.md.
+
+### image_path — where a figure's picture is (Phase 9)
+
+**Absolute URL, not a bucket key.** Today the only thing that writes it is the owner's own
+upload (ADR-011), so the value is an UploadThing CDN URL:
+`https://si4zn51deh.ufs.sh/f/<FILE_KEY>`. Storing the whole URL rather than a key is what
+lets the column survive the plan changing: a future pops.today pipeline (ADR-004) can put a
+relative bucket path in the same column, and `isRemoteImagePath()` is the one function that
+tells the two apart. Anything that is not an absolute `https://` URL renders as the drawn
+pixel spider instead of as a broken image.
+
+- **NULL on all 247 rows today.** ADR-008 seeded facts, not pictures, and the owner has not
+  uploaded any yet. NULL is not an error state — `PixelSpiderArt` is a deliberate look, and
+  it is also the `onError` fallback when a stored URL stops resolving.
+- **One file per figure, ever.** Replacing the art writes the new URL and then deletes the
+  superseded file from UploadThing (`replacedFileKey()` parses its key back out of the old
+  URL). In that order: an orphaned 150 KB file is a better failure than a figure pointing at
+  a 404.
+- **The art belongs to the CATALOG row, not to a sighting.** Two copies of #1450 on the shelf
+  are one box, so the upload panel lives on the edit screen but writes
+  `reference_figures`, and every `owned_figures` row pointing at that figure shows the same
+  picture. This is also why there is no photo table — a personal-photos table can still be
+  added later without touching any of it.
+- **The seeder never writes it on update**, so a re-seed of the CSV cannot wipe an upload —
+  the same guarantee `upc` and `is_vaulted` have.
+- **It is a public column.** Unlike `needs_review`, `source`, `source_url` and `review_note`,
+  `image_path` is selected by the public queries and exposed on `catalog_with_ownership`:
+  the picture is the one catalog field a visitor came to look at.
 
 ### upc and review_note — what the scanner writes (Phase 7)
 
@@ -102,8 +130,8 @@ What the seeder does with each column:
   file to claim a slug keeps it, so appending rows never rewrites an existing figure's URL.
 - **`variant_flags`** is the CSV's pipe-list (`chase|glow`) split into `text[]`; a figure with
   no flags gets `{}`, not NULL, so queries need no null guard.
-- **`image_path` stays NULL** for every seeded row — box art is blocked on rights (ADR-008);
-  the UI shows pixel-art placeholders.
+- **`image_path` stays NULL** for every seeded row — the seed has no rights to any box art
+  (ADR-008), and the pictures now arrive one at a time from the owner instead (ADR-011).
 - **`upc`, `is_vaulted` and `image_path` are never written by the seeder on update**, so
   values added by later phases survive a re-seed.
 - The CSV's `notes` column is triage prose (which checklist corroborated the row) and has no
@@ -156,8 +184,8 @@ city, or a figure bought at an airport rather than in the city it is filed under
 the source and the dictionary becomes the fallback. Nothing is lost by waiting, and a column
 nobody writes costs 8 bytes of NULL bitmap. See [[Architecture]] for the map itself.
 
-No photo table: box art lives on the catalog row (`image_path`). A personal-photos table can
-be added later without breaking anything.
+No photo table: box art lives on the catalog row (`image_path` — see above). A
+personal-photos table can be added later without breaking anything.
 
 ### How the shelf is filled (Phase 3)
 

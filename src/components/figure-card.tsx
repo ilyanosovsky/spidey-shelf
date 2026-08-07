@@ -4,7 +4,8 @@ import { figureCategoryLabel } from "@/lib/categories";
 import { formatPlace, formatPopNumber, formatSightingDate } from "@/lib/format";
 import { hasLeftTheShelf, type PublicShelfEntry } from "@/lib/showcase";
 
-import { categoryAccent, PixelSpiderArt } from "./pixel-spider-art";
+import { BoxArt } from "./box-art";
+import { categoryAccent } from "./pixel-spider-art";
 
 /**
  * One figure on the shelf: a framed panel of placeholder box art, the amber number badge,
@@ -42,10 +43,12 @@ export function FigureCard({
       style={{ borderColor: accent }}
     >
       <div className="relative">
-        <PixelSpiderArt
+        <BoxArt
           slug={entry.slug}
+          name={entry.name}
           category={entry.category}
           popNumber={entry.popNumber}
+          imagePath={entry.imagePath}
           size="card"
         />
         <span className="font-pixel absolute -top-1 -left-1 rounded border-2 border-ink-px bg-amber px-2 py-1 text-[10px] tracking-wider text-ink-px">

@@ -5,7 +5,7 @@ import { formatPopNumber } from "@/lib/format";
 import { searchHrefFor, type PublicCatalogFigure } from "@/lib/search";
 
 import { PriceChip } from "./market-signal";
-import { PixelSpiderArt } from "./pixel-spider-art";
+import { BoxArt } from "./box-art";
 import { ShareButton } from "./share-button";
 
 /**
@@ -45,10 +45,12 @@ export function WantedCard({
         className="block transition-transform hover:-translate-y-[2px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber"
       >
         <div className="relative">
-          <PixelSpiderArt
+          <BoxArt
             slug={figure.slug}
+            name={figure.name}
             category={figure.category}
             popNumber={figure.popNumber}
+            imagePath={figure.imagePath}
             size="card"
           />
           <span className="font-pixel absolute -top-1 -left-1 rounded border-2 border-ink-px bg-amber px-2 py-1 text-[10px] tracking-wider text-ink-px">

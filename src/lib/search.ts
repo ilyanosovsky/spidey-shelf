@@ -27,6 +27,8 @@ export interface PublicCatalogFigure {
   productLine: string | null;
   exclusivity: string | null;
   variantFlags: string[] | null;
+  /** Owner-uploaded box art (ADR-011), or NULL while the figure still gets a drawn one. */
+  imagePath: string | null;
 }
 
 /** A catalog figure plus the three ownership signals the verdict is made of. */
