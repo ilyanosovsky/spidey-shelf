@@ -146,5 +146,6 @@ owners'. This is a non-commercial personal project about a shelf in someone's fl
 
 ## License
 
-None yet — the owner has not picked one. Until a `LICENSE` file lands here, default copyright
-applies: the code is readable, and that is all it is offered as.
+[MIT](LICENSE). The code is free to use; the catalog CSV is a hand-curated, facts-only
+compilation with per-row source attribution, and box-art images are the owner's uploads —
+neither carries Marvel/Sony/Funko assets from this repo.
