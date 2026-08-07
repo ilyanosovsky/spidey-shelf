@@ -365,12 +365,13 @@ always will; markers are drawn smallest-first so the busier city ends up on top,
 beneath — flag, city, count, as real text — is where the numbers are actually read. The SVG is
 `aria-hidden`, the same rule `WebRadar` follows.
 
-## eBay MARKET SIGNAL (Phase 8) — a feature that is currently invisible
+## eBay MARKET SIGNAL (Phase 8) — live since 2026-08-07
 
-`src/lib/ebay/`. Everything starts at `isEbayConfigured()`, and the owner has no keys: on the
-live deployment **no panel renders, no query is issued and no request is made**. That was
-verified, not assumed — patching `globalThis.fetch` around the real `getMarketPanel()` and
-`listPriceChips()` against the live database records zero calls.
+`src/lib/ebay/`. Everything starts at `isEbayConfigured()`: the feature is keys-optional by
+design, and a key-less deployment **renders no panel, issues no query and makes no request** —
+verified, not assumed, by patching `globalThis.fetch` around the real `getMarketPanel()` and
+`listPriceChips()` against the live database (zero calls recorded). The owner's production
+keyset is now configured locally and on Vercel, so the panel is live in production.
 
 | Module        | What it is                                                                   |
 | ------------- | ---------------------------------------------------------------------------- |
@@ -382,10 +383,13 @@ verified, not assumed — patching `globalThis.fetch` around the real `getMarket
 | `queries.ts`  | `server-only`: read / upsert / list `price_snapshots`                        |
 | `market.ts`   | `server-only`: the orchestration, and the only thing a page imports          |
 
-⚠️ **Written against eBay's documented contracts and never yet run against the live API.** The
-fixtures in `parse.test.ts` are the published Browse shapes (hit / empty / 401 / 429 / garbage).
-When the owner's keyset arrives, one real `item_summary/search` body should be diffed against
-them before the panel is trusted — see [[Environment]].
+✅ **Live-verified 2026-08-07** against the real API with the owner's production keyset:
+OAuth client-credentials → 200 (`Application Access Token`, 7200s) parsed by
+`parseTokenResponse` unchanged; a real `item_summary/search` (54 total listings) →
+`interpretBrowseResponse` → `ok · 25 sampled · min $5.00 · median $15.99 USD`. The published
+shapes the fixtures in `parse.test.ts` were written against matched the live responses with
+**zero parser changes**. End-to-end through the app, `/figure/…-1450` rendered the panel and
+wrote the first `price_snapshots` row.
 
 ### The budget, honestly
 
@@ -423,7 +427,7 @@ figure's page with an error boundary because a price could not be loaded.
 | UploadThing (free 2 GB)                               | where the owner's own box-art uploads live           | **live (phase 9)** — ADR-011, 0 files yet  |
 | Checklist sites (funkypriceguide 117, Pop Shop Guide) | plan-B catalog seed                                  | **seeded (plan B)** — 240 rows, ADR-008    |
 | UPCitemdb (free 100 req/day)                          | scan-time UPC fallback                               | **live (phase 7)** — 1 call/scan, no key   |
-| eBay Browse API (free 5k req/day)                     | live prices                                          | **built, gated off (phase 8)** — no keys   |
+| eBay Browse API (free 5k req/day)                     | live prices                                          | **live** (verified 2026-08-07)             |
 | Natural Earth 110m land (CC0)                         | the SIGHTINGS MAP's landmass                         | **vendored (phase 8)** — derived once      |
 | hobbyDB / Funko official                              | —                                                    | ruled out (ToS / no API)                   |
 

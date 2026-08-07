@@ -26,7 +26,7 @@ plaques, hard 2px shadows. Dark theme only, on purpose.
 | **Barcode scanner**        | zxing-wasm in the browser. The catalog shipped with **zero** barcodes, so a scan is not a lookup but an enrichment loop: catalog → one UPCitemdb call → a guess → the owner confirms → the code is written onto that row, and the next scan of that box is free                             |
 | **Box art**                | a deterministic pixel spider per figure by default; the owner can upload real box art per figure, normalized in the browser to 800×800 WebP so the grid keeps one look                                                                                                                      |
 | **PWA**                    | manifest, real pixel-spider icons, `appleWebApp` so Add to Home Screen produces an app rather than a bookmark                                                                                                                                                                               |
-| **eBay prices**            | built, and currently invisible — no keys, so no panel renders and no request is made                                                                                                                                                                                                        |
+| **eBay prices**            | a MARKET SIGNAL panel per figure — `~$median · N listings` from live eBay Browse data, cached 24h per figure in Postgres, with an honest "active listings, not sold prices" fine print. Keys-optional: a deployment without eBay credentials renders nothing and calls nothing              |
 
 ## Stack
 
