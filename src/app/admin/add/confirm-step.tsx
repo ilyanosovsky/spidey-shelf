@@ -1,4 +1,6 @@
-import { PixelButton, PixelButtonLink } from "@/components/pixel-button";
+import Link from "next/link";
+
+import { FOCUS_RING, PixelButton, PixelButtonLink } from "@/components/pixel-button";
 import { ToothedBanner } from "@/components/toothed-banner";
 import { SCAN_COPY } from "@/lib/barcode/scan-flow";
 import { formatUpc } from "@/lib/barcode/upc";
@@ -63,6 +65,10 @@ export function ConfirmStep({
   errors: readonly QuickAddErrorCode[];
   duplicateAction: QuickAddFormAction;
 }) {
+  // Carried into the FIX detour and back, so a correction never loses the `MATCHED BY
+  // BARCODE` banner the scan earned.
+  const viaParam = matchedByBarcode ? "barcode" : null;
+
   return (
     <QuickAddScreen>
       <Panel>
@@ -127,6 +133,22 @@ export function ConfirmStep({
               quantity, it does not become a second sighting.
             </p>
           ) : null}
+
+          {/*
+           * The escape hatch, deliberately quiet (Phase 12). It is the right figure and the
+           * wrong row: 240 of the 247 catalog entries came out of hobbyist checklists
+           * (ADR-008), and a wrong `pop_number` used to leave the owner with two bad options
+           * — confirm against a lie, or abandon the add. It is a text link rather than a
+           * button because on this screen the answer is CONFIRM nine times out of ten.
+           */}
+          <p className="mt-5 text-center">
+            <Link
+              href={quickAddHref("fix", { ref: figure.id, q: query, upc, via: viaParam })}
+              className={`font-pixel inline-flex min-h-11 items-center rounded px-2 text-[10px] tracking-wider text-cream/70 underline underline-offset-4 ${FOCUS_RING}`}
+            >
+              {QUICK_ADD_COPY.fixLink}
+            </Link>
+          </p>
         </Panel>
       </section>
 

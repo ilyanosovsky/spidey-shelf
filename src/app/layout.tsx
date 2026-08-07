@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Press_Start_2P } from "next/font/google";
+
+import { SITE_DESCRIPTION, SITE_NAME, siteUrl } from "@/lib/site";
+
 import "./globals.css";
 
 const geist = Geist({
@@ -14,10 +17,44 @@ const pressStart = Press_Start_2P({
 });
 
 export const metadata: Metadata = {
-  title: "SPIDEY SHELF",
-  description:
-    "Personal Funko Pop Spider-Man collection tracker. Check if Ilya already owns a figure before gifting one.",
-  applicationName: "SPIDEY SHELF",
+  /**
+   * Every relative URL in this object — and in every page's own metadata — is resolved
+   * against this. Without it Next emits `og:image` as a PATH, and a crawler (Messenger,
+   * WhatsApp, iMessage, Slack) has no page context to resolve it with, so the preview
+   * renders as grey text. That was the actual symptom the owner reported: a perfectly good
+   * card that nobody outside the app could see. See `src/lib/site.ts`.
+   */
+  metadataBase: new URL(siteUrl()),
+  title: SITE_NAME,
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  /**
+   * The social card. `/opengraph-image` is a static route (`src/app/opengraph-image.tsx`),
+   * so this is one file on a CDN rather than a function a dozen crawlers wake at once.
+   *
+   * Declared HERE and not per page on purpose: `/figure/[slug]` already sets its own title
+   * and description in `generateMetadata`, and metadata in the App Router MERGES down the
+   * tree — so every figure page inherits this image with its own words over it, which is
+   * exactly the card a shared figure link should show.
+   */
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "en",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    url: "/",
+  },
+  /**
+   * `summary_large_image` is the difference between a postage stamp beside the text and a
+   * 1200×630 card above it — the whole point of drawing one.
+   */
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+  },
+  alternates: { canonical: "/" },
   /**
    * iOS has no manifest support worth relying on and no `beforeinstallprompt`, so the
    * home-screen experience is configured entirely through these meta tags. Without
@@ -29,7 +66,7 @@ export const metadata: Metadata = {
    */
   appleWebApp: {
     capable: true,
-    title: "SPIDEY SHELF",
+    title: SITE_NAME,
     statusBarStyle: "black-translucent",
   },
   icons: {

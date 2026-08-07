@@ -18,6 +18,7 @@ import { MARKET_COPY } from "@/lib/ebay/snapshot";
 import { countryFlagEmoji, formatPlace, formatPopNumber, formatSightingDate } from "@/lib/format";
 import { findShelfNeighbours, hasLeftTheShelf, type PublicShelfEntry } from "@/lib/showcase";
 import { listPublicShelf } from "@/lib/showcase-queries";
+import { OG_IMAGE } from "@/lib/site";
 
 /**
  * One figure's page — box art, ownership, and the sighting log behind it.
@@ -52,9 +53,28 @@ export async function generateMetadata({
   const place = formatPlace(current.acquiredCity, current.acquiredCountry);
   const when = formatSightingDate(current.acquiredAt);
 
+  const heading = title(current);
+  const description = `${current.name} ${formatPopNumber(current.popNumber)} — sighted ${place === "—" ? "somewhere" : place} in ${when}.`;
+
+  /**
+   * The card is the layout's, the WORDS are this figure's (Phase 12). Metadata merges down
+   * the tree **per key, not per object**: the root declares `openGraph.title`, so a page that
+   * stayed quiet would put "SPIDEY SHELF" on every shared figure link. Overriding the key
+   * costs the inherited `images` with it — silently, since the page still renders — so the
+   * card is named back explicitly from the one constant that also feeds the image route.
+   */
   return {
-    title: title(current),
-    description: `${current.name} ${formatPopNumber(current.popNumber)} — sighted ${place === "—" ? "somewhere" : place} in ${when}.`,
+    title: heading,
+    description,
+    alternates: { canonical: `/figure/${slug}` },
+    openGraph: {
+      type: "website",
+      title: heading,
+      description,
+      url: `/figure/${slug}`,
+      images: [OG_IMAGE],
+    },
+    twitter: { card: "summary_large_image", title: heading, description, images: [OG_IMAGE] },
   };
 }
 

@@ -68,6 +68,53 @@ export const CITY_COORDINATES: Readonly<Record<string, Coordinate>> = {
 };
 
 /**
+ * The dictionary's CANONICAL spelling per city — what the CITY combobox offers (Phase 12).
+ *
+ * A subset of {@link CITY_COORDINATES}' keys on purpose: the aliases above exist so the data
+ * already on the shelf resolves (`munchen`, `la`, `mallorca`), and offering them as
+ * suggestions would invite the owner to type a second spelling of a place he already has.
+ * One entry per real place, spelled the way the map's legend spells it.
+ *
+ * The pairing is checked by a test rather than by convention — every key here must exist in
+ * `CITY_COORDINATES`, and every value must resolve back through `lookupCity()`, so a renamed
+ * city cannot leave a suggestion pointing at nothing.
+ */
+export const CITY_DISPLAY_NAMES: Readonly<Record<string, string>> = {
+  "il:haifa": "Haifa",
+  "de:munich": "Munich",
+  "ge:tbilisi": "Tbilisi",
+  "ge:batumi": "Batumi",
+  "ru:moscow": "Moscow",
+  "us:los angeles": "Los Angeles",
+  "es:madrid": "Madrid",
+  "es:palma de mallorca": "Palma de Mallorca",
+  "nl:amsterdam": "Amsterdam",
+};
+
+/** The countries the dictionary can place anything in, uppercase — `["DE", "ES", …]`. */
+export function dictionaryCountries(): string[] {
+  const codes = new Set(Object.keys(CITY_DISPLAY_NAMES).map((key) => key.split(":")[0]));
+  return [...codes].map((code) => code.toUpperCase()).sort();
+}
+
+/**
+ * Every city the dictionary knows in one country, alphabetically — `("GE")` → Batumi, Tbilisi.
+ *
+ * The seed of the CITY suggestions: a country the owner has never bought a figure in still
+ * offers whatever the map can already place, and a country the dictionary has never heard of
+ * simply offers nothing, which is not an error — free text is the point (see `places.ts`).
+ */
+export function dictionaryCitiesFor(country: string | null | undefined): string[] {
+  const code = (country ?? "").trim().toLowerCase();
+  if (!/^[a-z]{2}$/.test(code)) return [];
+
+  return Object.entries(CITY_DISPLAY_NAMES)
+    .filter(([key]) => key.startsWith(`${code}:`))
+    .map(([, name]) => name)
+    .sort((a, b) => a.localeCompare(b, "en"));
+}
+
+/**
  * `"  T'bilisi "` → `tbilisi`. Case, accents, apostrophes and doubled spaces all folded.
  *
  * `NFD` + stripping the combining marks is what turns `München` into `munchen` — the owner

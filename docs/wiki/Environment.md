@@ -174,6 +174,26 @@ curl -s -H "Authorization: Bearer $(grep '^CRON_SECRET=' .env | cut -d= -f2-)" \
 # {"checked":19,"refreshed":17,"failed":0,"skippedFresh":2}
 ```
 
+### Optional (Phase 12): the site's own address
+
+| Var                    | What                                                         | Where                                       |
+| ---------------------- | ------------------------------------------------------------ | ------------------------------------------- |
+| `NEXT_PUBLIC_SITE_URL` | the canonical origin, e.g. `https://spidey-shelf.vercel.app` | optional — local `.env` · Vercel Production |
+
+It feeds `metadataBase` in the root layout, the absolute `og:image` URL, the `Sitemap:` line
+in `/robots.txt`, and every `<loc>` in `/sitemap.xml`. `NEXT_PUBLIC_` because it is not a
+secret and is inlined at build time.
+
+Blank falls back to `https://spidey-shelf.vercel.app` (`DEFAULT_SITE_URL` in
+`src/lib/site.ts`) and **never throws** — a missing or malformed value must not be able to
+fail `next build`, because the no-env build is a gate on every PR; the worst case is a
+preview card pointing at production. A bare host is accepted (`https://` is added). Set it on
+Vercel Production once a custom domain exists.
+
+Absolute URLs are not optional for social previews: Messenger, WhatsApp, iMessage and Twitter
+fetch `og:image` from a bare crawler with no page context, so a relative path is simply not
+fetched and the link renders as grey text — which was the actual reported symptom.
+
 ### GitHub Actions secrets
 
 | Secret       | When                                                                                                 |

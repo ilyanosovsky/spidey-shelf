@@ -16,16 +16,19 @@ export function EditOwnedFigure({
   id,
   reference,
   values,
+  citiesByCountry,
 }: {
   id: string;
   reference: Pick<ReferenceSearchResult, "id" | "popNumber" | "name" | "productLine">;
   values: OwnedFigureFormValues;
+  citiesByCountry: Readonly<Record<string, readonly string[]>>;
 }) {
   return (
     <OwnedFigureForm
       action={updateOwnedFigureAction.bind(null, id)}
       reference={reference}
       values={values}
+      citiesByCountry={citiesByCountry}
       submitLabel="SAVE CHANGES"
     />
   );

@@ -1,4 +1,5 @@
 import { isRealIsoDate, looksLikeIsoDate, OWNED_STATUSES, type OwnedStatus } from "./collection";
+import { resolveCountryCode } from "./countries";
 
 /**
  * Everything the admin collection forms decide before a database is involved.
@@ -95,10 +96,14 @@ export function parseOwnedFigureForm(fields: OwnedFigureFormFields): OwnedFigure
     errors.push("THAT DATE DOES NOT EXIST");
   }
 
+  // Phase 12: the same combobox the Quick Add details step uses, so the same resolver. What
+  // arrives may be `Israel (IL)`, `IL`, `Israel` or `USA`; anything unplaceable is an error
+  // rather than two letters stored on trust, because the SIGHTINGS MAP reads this as a fact.
   const acquiredCountryRaw = trimmedOrNull(fields.acquiredCountry);
-  const acquiredCountry = acquiredCountryRaw?.toUpperCase() ?? null;
-  if (acquiredCountry !== null && !/^[A-Z]{2}$/.test(acquiredCountry)) {
-    errors.push("COUNTRY MUST BE A 2-LETTER CODE");
+  const acquiredCountry =
+    acquiredCountryRaw === null ? null : resolveCountryCode(acquiredCountryRaw);
+  if (acquiredCountryRaw !== null && acquiredCountry === null) {
+    errors.push("PICK A COUNTRY FROM THE LIST");
   }
 
   if (errors.length > 0) return { ok: false, errors };

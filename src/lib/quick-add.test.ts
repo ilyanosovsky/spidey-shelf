@@ -100,7 +100,7 @@ describe("error codes", () => {
     expect(parseQuickAddErrors(param)).toEqual(["BAD_DATE", "BAD_COUNTRY"]);
     expect(quickAddErrorMessages(parseQuickAddErrors(param))).toEqual([
       "DATE MUST BE YYYY-MM-DD",
-      "COUNTRY MUST BE A 2-LETTER CODE",
+      "PICK A COUNTRY FROM THE LIST",
     ]);
   });
 

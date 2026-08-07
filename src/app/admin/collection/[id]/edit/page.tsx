@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PublicNav } from "@/components/public-nav";
-import { getOwnedFigure } from "@/lib/collection-queries";
+import { getOwnedFigure, listUsedPlaces } from "@/lib/collection-queries";
 import { requireAdmin } from "@/lib/dal";
+import { citySuggestionIndex } from "@/lib/places";
 
 import { CategoryChip, Panel, PixelLink } from "../../../ui";
 import { DeleteOwnedFigure } from "../../delete-owned-figure";
@@ -24,6 +25,10 @@ export default async function EditOwnedFigurePage({ params }: { params: Promise<
   const { id } = await params;
   const figure = await getOwnedFigure(id);
   if (!figure) notFound();
+
+  // The CITY box narrows to whatever the shelf already holds in the chosen country, so the
+  // suggestions are computed here (server, one small query) rather than fetched per keystroke.
+  const citiesByCountry = citySuggestionIndex(await listUsedPlaces());
 
   // The form edits a catalog-linked row; an unlinked one (custom_name only) has no Phase 3
   // screen yet — it cannot be created here, and the seeder never makes one.
@@ -78,6 +83,7 @@ export default async function EditOwnedFigurePage({ params }: { params: Promise<
             story: figure.story ?? "",
             isPublic: figure.isPublic !== false,
           }}
+          citiesByCountry={citiesByCountry}
         />
       </Panel>
 
