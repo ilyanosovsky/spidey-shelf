@@ -63,7 +63,7 @@ the native share sheet is not something a server can hand over:
 | `PixelFrame`     | `accent?`, `weight` (`sm`/`md`), `as?`                  | the gadget panel: border + hard `--ink-px` shadow. `sm` is the thin card frame on mobile, `md` the screen body; `accent` overrides the border colour       |
 | `PixelButton`    | `variant` (`primary`/`secondary`/`danger`/`quiet`)      | amber CTA / green / coral / outline; pressed = 2px down-right + shorter shadow; `min-h-11` (44px). `PixelButtonLink` is the same thing as a link           |
 | `LCDCounter`     | `value`, `label`, `size` (`sm`/`lg`), `scanlines`       | glowing tabular digits on `--lcd-bg`, 2px scanline overlay (`.lcd-scanlines`)                                                                              |
-| `ToothedBanner`  | `as?` (heading level)                                   | coral plaque, square teeth via `.pixel-teeth` (repeating gradient). Text is `--ink-px`, not cream                                                          |
+| `ToothedBanner`  | `as?` (heading level), `tone` (`coral`/`green`)         | coral plaque, square teeth via `.pixel-teeth` (repeating gradient). Text is `--ink-px`, not cream. `tone="green"` is the Phase 6 success plaque            |
 | `TickerBar`      | `text`                                                  | CSS marquee on an LCD strip; the line is repeated 3× and the track travels ⅓ of its width, so the loop is seamless. Stops under `prefers-reduced-motion`   |
 | `PixelSpiderArt` | `slug`, `category`, `popNumber`, `size` (`card`/`hero`) | the box-art stand-in: a deterministic 16×16 inline-SVG spider, hue per category, pop number as cover text. `aria-hidden` — the card carries the same facts |
 | `FigureCard`     | `entry`, `isNew?`                                       | states: mine (default) · not-mine-anymore (dimmed + amber chip) · new sighting (amber star). Whole card links to `/figure/<slug>`                          |
@@ -86,6 +86,30 @@ Added in Phase 5 (search, wishlist, stats):
 No minimum-visible-bar fudge: the counters next to it are the point of the screen, and a
 chart that flatters them would undo them.
 
+Added in Phase 6 (Quick Add): `ToothedBanner` grew a `tone` prop — `coral` (default) and
+`green`, the success plaque, whose teeth come from `.pixel-teeth-green` in globals.css. It is
+the only change to a shared component; everything else lives in `src/app/admin/add/`.
+
+### Quick Add screens (`/admin/add`, admin-only)
+
+Five frames on one route, `?step=` picking between them. All server components, no client
+JavaScript anywhere in the flow — the primary button of every frame sits last so it lands
+under the thumb at 375px, and every target clears 44px.
+
+| Frame                       | One line                                                                                                                                                                |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IdentifyStep` (step 1)     | autofocused GET box over the whole catalog, tappable result cards, a disabled `⌖ SCAN — SOON` slot for Phase 7, and `+ ADD AS NEW FIGURE` always last                   |
+| `NewFigureStep` (step 1b)   | name + optional number (prefilled from the search) + four category chips (`PETER PARKER` preselected) + optional product line → a `needs_review` catalog row            |
+| `ConfirmStep` (step 2)      | coral `IS IT THIS ONE?` banner, the figure as a `PixelSpiderArt` hero, `OR ONE OF THESE` variant cards, and either `CONFIRM — IT'S MINE` or the amber duplicate warning |
+| `DetailsStep` (step 3)      | date (today) · city + country (last used) · status chips · optional story, with `SAVE THE SIGHTING` first in the DOM and `SKIP FOR NOW` under it                        |
+| `DoneStep` (step 4)         | green `SIGHTING CONFIRMED!` plaque, the figure, two LCD counters with fresh counts, then `ADD ANOTHER` · `VIEW IT` · `WRITE THE STORY` (only when one is owed)          |
+| `QuickAddRail` (all frames) | `1 FIND · 2 CONFIRM · 3 DETAILS`, the active one filled amber; `new` sits on step 1 and `done` on step 3                                                                |
+
+The shared furniture — the rail, the chips, the hero and summary cards, the error list — is
+`src/app/admin/add/quick-add-ui.tsx`. Chip tones: category cream · variant amber · coral
+`NEEDS REVIEW` · green `IN THE VAULT`. Those last two are admin-only by construction: the
+type that carries them (`AdminCatalogFigure`) never reaches a public component.
+
 Still to build: MapMarker (pixel spider, green/red/gray) · ScannerOverlay (web-corner
 viewfinder) · Mascot (own sprite).
 
@@ -103,6 +127,15 @@ component: `GIFT CHECK` · `ENTER POP NUMBER OR NAME` · `CHECK THE SHELF` ·
 `WANTED: 109 SPIDERS STILL OUT THERE` · `NOTHING LEFT IN THIS SECTOR` · `PETER CANON` /
 `ALL SPIDERS` / `WHOLE VAULT`. The empty search result deliberately has **no** "write to the
 owner" CTA — this is a read-only showcase, not a shop with a contact form.
+
+Phase 6 wording lives in `QUICK_ADD_COPY` (`src/lib/quick-add.ts`), never retyped in a
+component: `NEW SIGHTING` · `NUMBER OR NAME` · `SCAN THE CATALOG` · `⌖ SCAN — SOON` ·
+`ADD AS NEW FIGURE` · `IS IT THIS ONE?` · `CONFIRM — IT'S MINE` · `OR ONE OF THESE` ·
+`ALREADY IN THE VAULT (SINCE APR 2025)` · `ADD DUPLICATE (+1)` · `WHERE AND WHEN?` ·
+`SAVE THE SIGHTING` · `SKIP FOR NOW` · `SIGHTING CONFIRMED!` · `ADD ANOTHER` · `VIEW IT` ·
+`WRITE THE STORY` · `STORIES OWED: 3` · `STORY OWED`. Form complaints are a closed table of
+codes with fixed wording (`DATE MUST BE YYYY-MM-DD`, `PICK ONE OF THE FOUR CATEGORIES`, …) —
+they travel in the URL, so nothing else may ever render from it.
 
 ## Accessibility
 

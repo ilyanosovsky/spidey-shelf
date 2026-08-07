@@ -50,6 +50,15 @@ body {
   );
 }
 
+/* The success plaque's teeth (`SIGHTING CONFIRMED!`). Same gradient, the other token. */
+.pixel-teeth-green {
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--color-pop-green) 0 8px,
+    transparent 8px 16px
+  );
+}
+
 /*
  * TickerBar. The track carries the line three times and travels exactly one third of its
  * own width, so the loop restarts on an identical frame and no seam is visible.

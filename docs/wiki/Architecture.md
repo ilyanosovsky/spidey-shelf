@@ -85,9 +85,40 @@ layout depends on anything else about it.
   `ALL SPIDERS 12/180`, `WHOLE VAULT 15/247` — all computed, never constants) and the public
   shelf for the year timeline and the country flags. The WebRadar's geometry is pure
   arithmetic in `src/lib/radar.ts`.
-- **Quick Add** (admin): identify (scan UPC via zxing-wasm | type number | type name) →
-  confirm variant (mandatory — exclusives may share a UPC) → details (place/date/status,
-  story skippable) → done; box art comes from the catalog automatically.
+- **Quick Add** (admin): `/admin/add` is one route with five frames — `?step=` picks between
+  `identify` · `new` · `confirm` · `details` · `done`, and `/admin/collection/new` 307s here.
+  Steps are URLs, not client state, so the back button works, a half-finished add survives a
+  locked phone, and **the whole flow ships zero client JavaScript**: step 1 is a GET form over
+  the catalog, results and variants are links, and both writes are plain form POSTs to server
+  actions (progressive enhancement, so they work before hydration). There is no
+  `useActionState` to hold errors in, so a rejected submit redirects back to its own step with
+  `?err=CODE`; the codes are a closed table in `src/lib/quick-add.ts` and anything else in the
+  parameter is dropped, because painting a message straight out of the address bar is content
+  injection with extra steps. The trade — a rejected submit loses what was typed — is
+  acceptable: every field a parser can reject is already constrained by the input itself
+  (`type="date"`, `maxlength`, radio groups), so reaching an error means a hand-built POST.
+  - **Confirm is mandatory.** Numbers repeat and exclusives can share a UPC, so the step
+    offers every row with the same `pop_number` plus same-base-name variants inside the same
+    product line, and deliberately refuses to group two identically-spelled figures from
+    different waves — "Spider-Man" names some forty unrelated Pops, and without that clause
+    the confirm screen for #3 would offer half the catalog. SQL casts a wide candidate net;
+    the rule itself is `variantSiblings()`, pure and unit-tested.
+  - **Duplicate guard.** When a `mine` shelf row already holds the figure, the primary button
+    becomes `ADD DUPLICATE (+1)`: it bumps `quantity` on the existing row (as a SQL
+    expression, not a computed constant) and jumps straight to the success screen. One entry
+    per figure is what keeps the grid and every counter honest — a second box is not a second
+    sighting. A `not_mine_anymore` row never triggers the warning: re-buying a Pop he gave
+    away is how this collection grows.
+  - **Story queue.** `SKIP FOR NOW` is a second submit on the details form and writes
+    `needs_story`. The invariant both write paths keep is _a sighting with no story is a story
+    owed_ (`needs_story ⇔ story IS NULL`), so the console's `STORIES OWED: n` line →
+    `/admin/collection?filter=needs_story` can never drift, and saving the edit form is what
+    clears it.
+  - **Smart defaults.** Step 3 opens with today's date, `MINE`, and the city/country of the
+    most recent shelf row — the "whole trip in one tap" trick, since figures arrive in
+    clusters. Box art comes from the catalog automatically; no photo is ever uploaded.
+  - Step 1 carries a `⌖ SCAN — SOON` button rendered `disabled` + `aria-disabled` with no
+    handler: the Phase 7 slot, visible but not lying.
 - **Scanner**: BarcodeDetector is broken on iOS Safari (open WebKit bug) → feature-detect,
   fall back to zxing-wasm; typing the number is always a first-class path.
 - **Auth**: single admin; jose-signed httpOnly cookie (`spidey_session`, HS256, 30 days);
@@ -130,7 +161,10 @@ phases start filling those in. No box art is fetched — see ADR-008.
 match (`src/lib/collection.ts`, pure and unit-tested); an unresolved row fails the run rather
 than land as a dangling name. Idempotency key: `reference_figure_id + acquired_at`.
 
-The same data is editable at `/admin/collection` — a server-rendered list, a search-first add
-screen (`pop_number` exact, or `search_vector` FTS OR'd with a `pg_trgm` match on the name)
-and an edit form. Client components exist only where interaction demands them (the search box
-and the delete confirm); every server action calls `requireAdmin()` before it touches a row.
+The same data is editable at `/admin/collection` — a server-rendered list with `ALL` /
+`NEEDS STORY` filter chips, and an edit form. Adding moved to Quick Add (`/admin/add`) in
+Phase 6; the only client component left in the admin is the delete confirm. Every server
+action calls `requireAdmin()` before it touches a row — `src/proxy.ts` is an optimistic
+redirect and CVE-2025-29927 showed a proxy check can be skipped outright, so the check inside
+the action is the real gate, and `src/app/admin/add/actions.test.ts` asserts that each of the
+three Quick Add writes performs it _before_ the first insert or update.

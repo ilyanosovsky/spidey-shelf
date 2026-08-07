@@ -13,11 +13,7 @@ import {
   parseOwnedFigureForm,
   type OwnedFigureInput,
 } from "@/lib/collection-form";
-import {
-  findDuplicateOwnedFigure,
-  searchReferenceFigures,
-  type ReferenceSearchResult,
-} from "@/lib/collection-queries";
+import { findDuplicateOwnedFigure } from "@/lib/collection-queries";
 
 /**
  * Every action here starts with `requireAdmin()`.
@@ -32,13 +28,7 @@ export type OwnedFigureFormState = { errors: string[] };
 
 export const emptyOwnedFigureFormState: OwnedFigureFormState = { errors: [] };
 
-/** Search the catalog from the add screen. Returns [] for an empty or too-short query. */
-export async function searchCatalogAction(query: string): Promise<ReferenceSearchResult[]> {
-  await requireAdmin();
-  return searchReferenceFigures(query);
-}
-
-function insertValues(input: OwnedFigureInput) {
+function writeValues(input: OwnedFigureInput) {
   return {
     referenceFigureId: input.referenceFigureId,
     status: input.status,
@@ -46,32 +36,11 @@ function insertValues(input: OwnedFigureInput) {
     acquiredCity: input.acquiredCity,
     acquiredCountry: input.acquiredCountry,
     story: input.story,
+    // The same invariant Quick Add writes: a sighting with no story is a story owed. Saving
+    // the edit form is therefore how a figure leaves the dashboard's STORIES OWED queue.
+    needsStory: input.story === null,
     isPublic: input.isPublic,
   };
-}
-
-export async function createOwnedFigureAction(
-  _prevState: OwnedFigureFormState,
-  formData: FormData,
-): Promise<OwnedFigureFormState> {
-  await requireAdmin();
-
-  const parsed = parseOwnedFigureForm(ownedFigureFormFields(formData));
-  if (!parsed.ok) return { errors: parsed.errors };
-
-  const duplicate = await findDuplicateOwnedFigure(
-    parsed.value.referenceFigureId,
-    parsed.value.acquiredAt,
-  );
-  if (duplicate) {
-    return { errors: ["ALREADY IN THE VAULT — SAME FIGURE, SAME DAY"] };
-  }
-
-  await db.insert(ownedFigures).values(insertValues(parsed.value));
-
-  revalidatePath("/admin/collection");
-  revalidatePath("/admin");
-  redirect("/admin/collection");
 }
 
 export async function updateOwnedFigureAction(
@@ -95,7 +64,7 @@ export async function updateOwnedFigureAction(
 
   const updated = await db
     .update(ownedFigures)
-    .set({ ...insertValues(parsed.value), updatedAt: new Date() })
+    .set({ ...writeValues(parsed.value), updatedAt: new Date() })
     .where(eq(ownedFigures.id, id))
     .returning({ id: ownedFigures.id });
 
