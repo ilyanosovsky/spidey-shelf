@@ -98,7 +98,7 @@ under the thumb at 375px, and every target clears 44px.
 
 | Frame                       | One line                                                                                                                                                                |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `IdentifyStep` (step 1)     | autofocused GET box over the whole catalog, tappable result cards, a disabled `⌖ SCAN — SOON` slot for Phase 7, and `+ ADD AS NEW FIGURE` always last                   |
+| `IdentifyStep` (step 1)     | autofocused GET box over the whole catalog, tappable result cards, the green `⌖ SCAN THE BOX` button (Phase 7), and `+ ADD AS NEW FIGURE` always last                   |
 | `NewFigureStep` (step 1b)   | name + optional number (prefilled from the search) + four category chips (`PETER PARKER` preselected) + optional product line → a `needs_review` catalog row            |
 | `ConfirmStep` (step 2)      | coral `IS IT THIS ONE?` banner, the figure as a `PixelSpiderArt` hero, `OR ONE OF THESE` variant cards, and either `CONFIRM — IT'S MINE` or the amber duplicate warning |
 | `DetailsStep` (step 3)      | date (today) · city + country (last used) · status chips · optional story, with `SAVE THE SIGHTING` first in the DOM and `SKIP FOR NOW` under it                        |
@@ -110,8 +110,36 @@ The shared furniture — the rail, the chips, the hero and summary cards, the er
 `NEEDS REVIEW` · green `IN THE VAULT`. Those last two are admin-only by construction: the
 type that carries them (`AdminCatalogFigure`) never reaches a public component.
 
-Still to build: MapMarker (pixel spider, green/red/gray) · ScannerOverlay (web-corner
-viewfinder) · Mascot (own sprite).
+Added in Phase 7 (barcode scanner) — the first and only client JavaScript in Quick Add:
+
+| Component        | Props                                        | Notes                                                                                                                                                                 |
+| ---------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ScanButton`     | —                                            | the green `⌖ SCAN THE BOX` button on step 1. Deliberately tiny: the overlay is a `next/dynamic(..., { ssr: false })` behind it, so pressing it is what loads a camera |
+| `ScannerOverlay` | `onClose`                                    | full-screen `role="dialog"`: video feed, viewfinder, scanline, caption, CLOSE, and `TYPE INSTEAD` in **every** state                                                  |
+| `ScanResultStep` | `upc`, `notice`, `parsedTitle`, `candidates` | `IS IT ONE OF THESE?` — the barcode as printed groups, what the lookup called it, catalog guesses, `+ ADD AS NEW FIGURE` last                                         |
+| `ScanFailedStep` | `notice`                                     | a code that fails its own check digit: coral panel, one sentence of why, `TYPE INSTEAD` as the primary button                                                         |
+
+`ScannerOverlay`'s viewfinder is the web-corner frame from the brief — four amber corner
+brackets (`border-t-4`/`border-l-4` pairs) around the band that is actually handed to the
+decoder, so "aim here" is literally true rather than decorative. A coral `.scanline` sweeps
+that band; it animates `top` and not `transform`, because a percentage translate resolves
+against the line's own 3px height and would twitch instead of sweep. Under
+`prefers-reduced-motion` the animation is killed **by name** and the line is parked at 50% —
+the global "shorten every animation" rule would otherwise leave it stuck at the bottom edge
+reading as a stray border, the same trap `.ticker-track` documents. On a lock the corners and
+the band turn `--pop-green` for one 420ms flash before the navigation.
+
+Phase 7 wording lives in `SCAN_COPY` / `SCAN_NOTICES` (`src/lib/barcode/scan-flow.ts`), the
+same closed-table rule as `QUICK_ADD_COPY`: `⌖ SCAN THE BOX` · `SCANNING` ·
+`AIM AT THE BARCODE ON THE BOX BOTTOM` · `TYPE INSTEAD` · `WAKING THE CAMERA…` ·
+`BARCODE LOCKED` · `NO CAMERA PERMISSION.` · `THE CAMERA NEEDS HTTPS.` ·
+`IF THE CAMERA STAYS DARK, RELOAD.` (the iOS home-screen-PWA quirk — the permission is not
+persisted) · `IS IT ONE OF THESE?` · `MATCHED BY BARCODE` ·
+`THAT BARCODE DOES NOT CHECK OUT. TYPE THE NUMBER?` · `BARCODE NOT FOUND. TYPE THE NUMBER?` ·
+`LOOKUP BUSY — TYPE THE NUMBER?`. The notices travel in the URL as codes, so nothing else
+may ever render from it.
+
+Still to build: MapMarker (pixel spider, green/red/gray) · Mascot (own sprite).
 
 The admin (`src/app/admin/ui.tsx`) re-exports `PixelButton`'s classes so the whole device
 has one button; its `Panel`, `LcdStat` and chips stay admin-sized on purpose.
@@ -129,7 +157,7 @@ component: `GIFT CHECK` · `ENTER POP NUMBER OR NAME` · `CHECK THE SHELF` ·
 owner" CTA — this is a read-only showcase, not a shop with a contact form.
 
 Phase 6 wording lives in `QUICK_ADD_COPY` (`src/lib/quick-add.ts`), never retyped in a
-component: `NEW SIGHTING` · `NUMBER OR NAME` · `SCAN THE CATALOG` · `⌖ SCAN — SOON` ·
+component: `NEW SIGHTING` · `NUMBER OR NAME` · `SCAN THE CATALOG` ·
 `ADD AS NEW FIGURE` · `IS IT THIS ONE?` · `CONFIRM — IT'S MINE` · `OR ONE OF THESE` ·
 `ALREADY IN THE VAULT (SINCE APR 2025)` · `ADD DUPLICATE (+1)` · `WHERE AND WHEN?` ·
 `SAVE THE SIGHTING` · `SKIP FOR NOW` · `SIGHTING CONFIRMED!` · `ADD ANOTHER` · `VIEW IT` ·

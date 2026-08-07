@@ -291,8 +291,17 @@ describe("the new-figure form", () => {
         category: "peter",
         productLine: null,
         countsTowardTotal: true,
+        upc: null,
       },
     });
+  });
+
+  it("takes the barcode a scan arrived with, canonicalised, and drops a broken one", () => {
+    const scanned = parseNewFigureForm({ name: "X", category: "other", upc: "889698636759" });
+    expect(scanned.ok && scanned.value.upc).toBe("0889698636759");
+
+    const broken = parseNewFigureForm({ name: "X", category: "other", upc: "889698636758" });
+    expect(broken.ok && broken.value.upc).toBeNull();
   });
 
   it("mirrors counts_toward_total onto the peter bucket and nothing else (ADR-009)", () => {
@@ -345,8 +354,15 @@ describe("the details form", () => {
         acquiredCountry: "RU",
         story: "Found it in a toy shop by the river.",
         needsStory: false,
+        upc: null,
       },
     });
+  });
+
+  it("carries a scanned barcode through to the write that backfills it", () => {
+    const parsed = parseQuickAddDetailsForm({ ...base, upc: "889698636759" });
+
+    expect(parsed.ok && parsed.value.upc).toBe("0889698636759");
   });
 
   it("keeps the invariant the story queue depends on: no story means a story owed", () => {

@@ -1,4 +1,5 @@
 import { PixelButton } from "@/components/pixel-button";
+import { formatUpc } from "@/lib/barcode/upc";
 import { FIGURE_CATEGORIES, FIGURE_CATEGORY_LABELS } from "@/lib/categories";
 import {
   QUICK_ADD_COPY,
@@ -25,14 +26,27 @@ import { QuickAddErrors, QuickAddRail, QuickAddScreen } from "./quick-add-ui";
  */
 export function NewFigureStep({
   query,
+  prefill: prefillOverride,
+  upc,
+  notice,
   errors,
   action,
 }: {
   query: string;
+  /**
+   * What a scan guessed out of the UPCitemdb title (Phase 7). Overrides the search-box
+   * prefill because a barcode lookup can hand over a name AND a number at once, which is
+   * more than a single `?q=` could ever say.
+   */
+  prefill?: { name: string; popNumber: string };
+  /** Carried into the insert: a brand-new row can take the scanned code straight away. */
+  upc?: string | null;
+  /** Why the flow ended up here — `BARCODE NOT FOUND`, `LOOKUP BUSY`, or nothing. */
+  notice?: string | null;
   errors: readonly QuickAddErrorCode[];
   action: QuickAddFormAction;
 }) {
-  const prefill = newFigurePrefill(query);
+  const prefill = prefillOverride ?? newFigurePrefill(query);
 
   return (
     <QuickAddScreen>
@@ -52,12 +66,30 @@ export function NewFigureStep({
         </p>
       </Panel>
 
+      {notice ? (
+        <Panel className="border-amber">
+          <p
+            role="status"
+            className="font-pixel text-[10px] leading-relaxed tracking-wider text-amber"
+          >
+            {notice}
+          </p>
+          {upc ? (
+            <p className="mt-3 text-sm text-cream/70">
+              The barcode {formatUpc(upc)} is saved with the figure, so the next scan of this box
+              finds it in one step.
+            </p>
+          ) : null}
+        </Panel>
+      ) : null}
+
       <QuickAddErrors codes={errors} />
 
       <Panel>
         <form action={action} className="flex flex-col gap-4">
           {/* Carried so BACK and a failed submit both return to the same search. */}
           <input type="hidden" name="q" value={query} />
+          {upc ? <input type="hidden" name="upc" value={upc} /> : null}
 
           <div className="flex flex-col gap-2">
             <label htmlFor="name" className={labelClass}>

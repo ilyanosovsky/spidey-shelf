@@ -76,6 +76,14 @@ export const referenceFigures = pgTable(
     sourceUrl: text("source_url"),
     /** Seed triage flag — never exposed on public pages. */
     needsReview: boolean("needs_review").default(false),
+    /**
+     * WHY the row is flagged, when a machine flagged it (Phase 7).
+     *
+     * A scan that reads a barcode onto a row already carrying a different one must not
+     * overwrite it — exclusives share UPCs (ADR-006) — so it flags the row instead, and a
+     * flag with no reason is a flag nobody can act on. Admin-only, like `needs_review`.
+     */
+    reviewNote: text("review_note"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

@@ -26,6 +26,7 @@ names; Drizzle exposes them camelCased.
 | counts_toward_total     | bool default true    | THE stats denominator switch               |
 | source, source_url      | text                 | provenance per row                         |
 | needs_review            | bool default false   | seed triage                                |
+| review_note             | text                 | WHY a machine flagged it (Phase 7)         |
 | search_vector           | tsvector generated   | name + character + product_line            |
 | created_at / updated_at | timestamptz          |                                            |
 
@@ -58,6 +59,26 @@ future one-off exception stays possible without a migration. Live today: 120 `pe
 
 The labels above are the single source of UI copy, exported from `src/lib/categories.ts`
 (`FIGURE_CATEGORY_LABELS`) — see Design-System.md.
+
+### upc and review_note — what the scanner writes (Phase 7)
+
+`upc` shipped empty: the checklist sources the catalog was seeded from (ADR-008) carry pop
+numbers and names, not barcodes, so **all 247 rows had `upc IS NULL`** the day the scanner
+landed. It is filled by use, one confirmed scan at a time — ADR-010, and the UPC backfill
+loop in [[Architecture]].
+
+- **Stored form: EAN-13, thirteen digits.** A UPC-A is the same code with a leading `0`, so
+  one canonical spelling in the column keeps comparisons honest. Lookups still ask about
+  **both** spellings (`upcLookupForms()`), because a row filled by hand may hold either.
+- **Never overwritten.** A scan that reads a different code onto a row that already carries
+  one sets `needs_review = true` and writes both codes into `review_note` instead. Funko
+  exclusives genuinely share a UPC (ADR-006), so a second code is evidence of ambiguity, not
+  a correction — and trading a hand-checked fact for a camera's guess is not an upgrade.
+- **`review_note` is admin-only**, exactly like `needs_review`, `source` and `source_url`:
+  `catalog_with_ownership` names its columns explicitly and does not select it, so no public
+  query can reach it. Added by `drizzle/0003_review_note.sql` (additive, idempotent, view
+  untouched).
+- The seeder still never writes `upc` on update, so backfilled codes survive a re-seed.
 
 ### How the catalog is filled (Phase 2 · Phase 3)
 

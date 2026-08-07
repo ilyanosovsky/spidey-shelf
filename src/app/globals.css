@@ -77,6 +77,28 @@ body {
   }
 }
 
+/*
+ * ScannerOverlay's sweep. It travels the viewfinder band — the exact strip of the frame
+ * handed to the decoder — so "aim here" is literally true rather than decorative.
+ */
+.scanline {
+  animation: spidey-scanline 2.4s ease-in-out infinite alternate;
+}
+
+/*
+ * `top`, not `transform`: a percentage translate resolves against the element's OWN 3px
+ * height, so the line would twitch instead of sweep. `top` resolves against the
+ * viewfinder, which is the box we actually want it to cross.
+ */
+@keyframes spidey-scanline {
+  from {
+    top: 0;
+  }
+  to {
+    top: calc(100% - 3px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -94,5 +116,14 @@ body {
   .ticker-track {
     animation: none;
     transform: none;
+  }
+
+  /*
+   * Same trick for the scanline, parked in the middle of the viewfinder: with the
+   * animation merely shortened it would sit at the bottom edge and read as a stray border.
+   */
+  .scanline {
+    animation: none;
+    top: 50%;
   }
 }

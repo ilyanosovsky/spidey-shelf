@@ -7,8 +7,14 @@ import { eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { ownedFigures, referenceFigures } from "@/db/schema";
+import { decideUpcBackfill } from "@/lib/barcode/backfill";
 import { catalogSlug } from "@/lib/catalog";
-import { getAdminFigure, listOwnedCopies, listTakenSlugs } from "@/lib/collection-queries";
+import {
+  getAdminFigure,
+  getReferenceUpc,
+  listOwnedCopies,
+  listTakenSlugs,
+} from "@/lib/collection-queries";
 import { requireAdmin } from "@/lib/dal";
 import {
   findOwnedDuplicate,
@@ -19,6 +25,7 @@ import {
   quickAddDetailsFormFields,
   quickAddErrorParam,
   quickAddHref,
+  scannedUpcValue,
   type QuickAddErrorCode,
 } from "@/lib/quick-add";
 import { figureSlug } from "@/lib/slug";
@@ -46,8 +53,40 @@ function revalidateVault(): void {
   revalidatePath("/");
 }
 
-function failNewFigure(errors: readonly QuickAddErrorCode[], query: string): never {
-  redirect(quickAddHref("new", { q: query, err: quickAddErrorParam(errors) }));
+function failNewFigure(
+  errors: readonly QuickAddErrorCode[],
+  query: string,
+  upc: string | null,
+): never {
+  redirect(quickAddHref("new", { q: query, upc, err: quickAddErrorParam(errors) }));
+}
+
+/**
+ * The scanner's payoff: the confirmed figure learns the barcode that found it.
+ *
+ * Called from both write paths (a new sighting and a bumped duplicate) because both are
+ * moments when a human has just looked at a box and said "yes, this row". `upc` is empty on
+ * every non-scan add, and then this returns before it reads or writes anything at all.
+ *
+ * The clash branch is the important one. Exclusives share UPCs (ADR-006, ADR-010), so a second,
+ * different code on a row is evidence of ambiguity, not a correction: the old value stays,
+ * `needs_review` goes up, and `review_note` records both codes so the triage pass knows
+ * what it is looking at. Overwriting would trade a checked fact for a guess.
+ */
+async function backfillUpc(referenceFigureId: string, scanned: string | null): Promise<void> {
+  if (!scanned) return;
+
+  const decision = decideUpcBackfill(await getReferenceUpc(referenceFigureId), scanned);
+  if (decision.action === "none") return;
+
+  await db
+    .update(referenceFigures)
+    .set(
+      decision.action === "write"
+        ? { upc: decision.upc, updatedAt: new Date() }
+        : { needsReview: true, reviewNote: decision.note, updatedAt: new Date() },
+    )
+    .where(eq(referenceFigures.id, referenceFigureId));
 }
 
 /**
@@ -65,9 +104,9 @@ export async function createReferenceFigureAction(formData: FormData): Promise<v
   const query = fields.q ?? "";
 
   const parsed = parseNewFigureForm(fields);
-  if (!parsed.ok) failNewFigure(parsed.errors, query);
+  if (!parsed.ok) failNewFigure(parsed.errors, query, scannedUpcValue(fields.upc));
 
-  const { name, popNumber, category, productLine, countsTowardTotal } = parsed.value;
+  const { name, popNumber, category, productLine, countsTowardTotal, upc } = parsed.value;
 
   // The seeder's slug ladder, reused: base first, then variant/exclusivity, then a numeric
   // tail — so a hand-added second "Spider-Man #3" cannot steal the existing row's URL.
@@ -86,7 +125,10 @@ export async function createReferenceFigureAction(formData: FormData): Promise<v
       category,
       productLine,
       countsTowardTotal,
-      source: "manual",
+      // A row that did not exist a second ago cannot clash with itself, so the scanned
+      // code goes straight in rather than through `decideUpcBackfill()`.
+      upc,
+      source: upc ? "scan" : "manual",
       needsReview: true,
     })
     .returning({ id: referenceFigures.id });
@@ -95,7 +137,7 @@ export async function createReferenceFigureAction(formData: FormData): Promise<v
 
   // Straight to the details: a figure invented thirty seconds ago has no variants to confirm
   // and cannot already be in the vault.
-  redirect(quickAddHref("details", { ref: created.id }));
+  redirect(quickAddHref("details", { ref: created.id, upc }));
 }
 
 /**
@@ -113,7 +155,13 @@ export async function saveSightingAction(formData: FormData): Promise<void> {
 
   const parsed = parseQuickAddDetailsForm(fields);
   if (!parsed.ok) {
-    redirect(quickAddHref("details", { ref: reference, err: quickAddErrorParam(parsed.errors) }));
+    redirect(
+      quickAddHref("details", {
+        ref: reference,
+        upc: scannedUpcValue(fields.upc),
+        err: quickAddErrorParam(parsed.errors),
+      }),
+    );
   }
 
   // The id came from a hidden input, so it is checked against the catalog rather than
@@ -134,6 +182,10 @@ export async function saveSightingAction(formData: FormData): Promise<void> {
     })
     .returning({ id: ownedFigures.id });
 
+  // After the sighting, not before: the figure being on the shelf is the fact worth
+  // keeping, and a failed enrichment must never cost the entry it came with.
+  await backfillUpc(parsed.value.referenceFigureId, parsed.value.upc);
+
   revalidateVault();
   redirect(quickAddHref("done", { id: created.id }));
 }
@@ -152,10 +204,16 @@ export async function addDuplicateAction(formData: FormData): Promise<void> {
   const reference = parseUuidParam(formData.get("referenceFigureId")?.toString());
   if (!reference) redirect(quickAddHref("identify", { err: quickAddErrorParam(["PICK_FIGURE"]) }));
 
+  const upc = scannedUpcValue(formData.get("upc")?.toString());
+
   const guard = findOwnedDuplicate(await listOwnedCopies(reference));
   if (!guard) {
     redirect(
-      quickAddHref("confirm", { ref: reference, err: quickAddErrorParam(["NOTHING_TO_BUMP"]) }),
+      quickAddHref("confirm", {
+        ref: reference,
+        upc,
+        err: quickAddErrorParam(["NOTHING_TO_BUMP"]),
+      }),
     );
   }
 
@@ -166,6 +224,9 @@ export async function addDuplicateAction(formData: FormData): Promise<void> {
       updatedAt: new Date(),
     })
     .where(eq(ownedFigures.id, guard.targetId));
+
+  // A second box of a figure he already owns is still a box with a barcode on it.
+  await backfillUpc(reference, upc);
 
   revalidateVault();
   redirect(quickAddHref("done", { id: guard.targetId, dup: "1" }));

@@ -85,12 +85,15 @@ layout depends on anything else about it.
   `ALL SPIDERS 12/180`, `WHOLE VAULT 15/247` — all computed, never constants) and the public
   shelf for the year timeline and the country flags. The WebRadar's geometry is pure
   arithmetic in `src/lib/radar.ts`.
-- **Quick Add** (admin): `/admin/add` is one route with five frames — `?step=` picks between
-  `identify` · `new` · `confirm` · `details` · `done`, and `/admin/collection/new` 307s here.
+- **Quick Add** (admin): `/admin/add` is one route with six frames — `?step=` picks between
+  `identify` · `scan-result` · `new` · `confirm` · `details` · `done`, and
+  `/admin/collection/new` 307s here.
   Steps are URLs, not client state, so the back button works, a half-finished add survives a
-  locked phone, and **the whole flow ships zero client JavaScript**: step 1 is a GET form over
-  the catalog, results and variants are links, and both writes are plain form POSTs to server
-  actions (progressive enhancement, so they work before hydration). There is no
+  locked phone, and **the typed flow still ships zero client JavaScript**: step 1 is a GET form
+  over the catalog, results and variants are links, and both writes are plain form POSTs to
+  server actions (progressive enhancement, so they work before hydration). The one exception
+  is the Phase 7 SCAN button, which is a camera and could never be anything else — everything
+  it needs is dynamically imported when it is pressed. There is no
   `useActionState` to hold errors in, so a rejected submit redirects back to its own step with
   `?err=CODE`; the codes are a closed table in `src/lib/quick-add.ts` and anything else in the
   parameter is dropped, because painting a message straight out of the address bar is content
@@ -117,10 +120,9 @@ layout depends on anything else about it.
   - **Smart defaults.** Step 3 opens with today's date, `MINE`, and the city/country of the
     most recent shelf row — the "whole trip in one tap" trick, since figures arrive in
     clusters. Box art comes from the catalog automatically; no photo is ever uploaded.
-  - Step 1 carries a `⌖ SCAN — SOON` button rendered `disabled` + `aria-disabled` with no
-    handler: the Phase 7 slot, visible but not lying.
-- **Scanner**: BarcodeDetector is broken on iOS Safari (open WebKit bug) → feature-detect,
-  fall back to zxing-wasm; typing the number is always a first-class path.
+  - Step 1's `⌖ SCAN THE BOX` button is the Phase 7 scanner and the flow's only client
+    JavaScript — see below.
+- **Scanner** (Phase 7): see [Barcode scanner](#barcode-scanner-phase-7).
 - **Auth**: single admin; jose-signed httpOnly cookie (`spidey_session`, HS256, 30 days);
   bcrypt hash in env; the session is re-verified through `requireAdmin()` in
   `src/lib/dal.ts` inside every admin page and server action. `src/proxy.ts` (Next 16's
@@ -135,13 +137,100 @@ layout depends on anything else about it.
   12/180 spiders, 15/247 the whole vault. Every one of them is computed per request and moves
   whenever the CSVs are re-seeded.
 
+## Barcode scanner (Phase 7)
+
+`⌖ SCAN THE BOX` on step 1 of Quick Add → camera → a number → the confirm step. All of it
+is admin-only, and none of it exists on the public site.
+
+### The engine
+
+`src/lib/barcode/` — pure helpers, plus one module per moving part:
+
+| Module         | What it is                                                                          |
+| -------------- | ----------------------------------------------------------------------------------- |
+| `upc.ts`       | check digits, UPC-A ⇄ EAN-13 normalisation, format guards — pure, fully unit-tested |
+| `decode.ts`    | one `decode(frame)` over the native `BarcodeDetector` and zxing-wasm (client only)  |
+| `upcitemdb.ts` | the response parser + the product-title heuristic — pure                            |
+| `lookup.ts`    | the single `fetch`, `server-only`, never throws                                     |
+| `scan-flow.ts` | the graded routing between camera and screen + all the wording                      |
+| `backfill.ts`  | what happens to `reference_figures.upc` when a scan is confirmed                    |
+
+- **zxing-wasm is the engine, native is the bonus.** iOS Safari's `BarcodeDetector` is
+  flag-disabled and regressed (ADR-006), and the owner's phone is an iPhone. Detection is
+  therefore not a `typeof` check: `createFrameDecoder()` asks `getSupportedFormats()` for
+  `ean_13` + `upc_a` **and** runs one real `detect()` on a scratch frame, so an
+  implementation that exists but resolves empty forever falls through to wasm.
+- **The `.wasm` is served from our own origin.** zxing-wasm bakes a jsDelivr URL into its
+  build and fetches from there on first decode; `decode.ts` overrides emscripten's
+  `locateFile` to `/barcode/zxing_reader.wasm`, and `scripts/copy-zxing-wasm.mjs` (wired to
+  `postinstall` **and** `prebuild`) copies the 1.0 MB binary out of `node_modules` into
+  `public/`. The file is git-ignored: it is a build artifact of a pinned dependency, and the
+  version that ships is always the one in `node_modules`. Verified: with the override in
+  place the module's only network request is `/barcode/zxing_reader.wasm`, zero CDN calls.
+- **Nothing about the scanner reaches a public bundle.** `ScanButton` is a one-button client
+  component; the overlay behind it is `next/dynamic(..., { ssr: false })`, and `decode.ts`
+  (and the megabyte of WebAssembly behind it) is dynamically imported inside the overlay
+  only once a camera has actually opened. `/`, `/search`, `/wishlist` and `/stats` carry no
+  reference to either.
+- **The camera is one resource with one teardown.** Stream, decode timer and video element
+  all die in the same cleanup, which runs on close, on unmount and on `pagehide`. Failure
+  modes each get a sentence rather than a spinner: `NotAllowedError` → permission copy, no
+  `mediaDevices` → the fallback painted on the first render (no viewfinder is drawn that
+  cannot fill), `isSecureContext === false` → "THE CAMERA NEEDS HTTPS". `TYPE INSTEAD` is on
+  screen in **every** state, because typing a number the owner already knows is faster than
+  aiming, and ADR-006 made the keyboard a first-class path on purpose.
+
+### The UPC backfill loop — why the scanner is worth having
+
+ADR-010. `reference_figures.upc` was **empty on all 247 rows** the day this shipped (ADR-008
+seeded facts from checklists; checklists do not print barcodes). So a scan cannot begin as a
+lookup. It begins as a question, and answering it teaches the catalog:
+
+```
+scan → catalog knows the code?  ── yes ──►  confirm step ("MATCHED BY BARCODE")   [0 API calls]
+                │ no
+                ▼
+        UPCitemdb, exactly once ──► product title ──► heuristic name/#
+                │                                          │
+                │ 404 / 429 / down                         ▼
+                ▼                                  fuzzy match our catalog
+        new-figure form, code carried              (FTS + pg_trgm, same as search)
+                │                                          │
+                └──────────────► owner confirms ◄──────────┘
+                                       │
+                                       ▼
+                        write the code onto THAT row  ⇒ the next scan is a catalog hit
+```
+
+The write happens in `saveSightingAction` and `addDuplicateAction` — both are moments when
+a human has just looked at a box and said "yes, this row" — and always **after** the
+sighting is inserted, so a failed enrichment can never cost the entry it came with. The
+decision itself is `decideUpcBackfill()`, pure and unit-tested: NULL → write; the same code
+in either spelling → no-op; a **different** code → keep the old one, set `needs_review` and
+record both in `review_note` (exclusives share UPCs, ADR-006). A figure invented on the spot
+takes the code straight into its INSERT with `source = 'scan'`.
+
+### The UPCitemdb budget
+
+The free trial tier is **100 lookups per day, per IP, no key** — and on Vercel that IP is
+shared. The rules that keep it inside the budget are load-bearing, not hygiene:
+
+- the catalog is asked first, so every figure costs at most **one** call ever;
+- a code that fails its own check digit never reaches the network (`normalizeScannedCode()`);
+- **exactly one call per scan and no retries.** A 429 answered by trying again is how a
+  daily quota disappears in an afternoon — the screen says `LOOKUP BUSY — TYPE THE NUMBER?`
+  and offers the form instead;
+- a 5-second `AbortSignal.timeout`, `cache: "no-store"`, and every failure (timeout, DNS, a
+  captive portal's HTML, a 500) parsed into an outcome rather than thrown — this runs inside
+  a page render, and a thrown fetch would replace the whole flow with an error boundary.
+
 ## External data sources
 
 | Source                                                | Role                                                 | Status                                     |
 | ----------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------ |
 | pops.today                                            | catalog + UPC + box art (27k pops, 418 spider pages) | permission email sent 2026-08-06, no reply |
 | Checklist sites (funkypriceguide 117, Pop Shop Guide) | plan-B catalog seed                                  | **seeded (plan B)** — 240 rows, ADR-008    |
-| UPCitemdb (free 100 req/day)                          | scan-time UPC fallback                               | planned, phase 7                           |
+| UPCitemdb (free 100 req/day)                          | scan-time UPC fallback                               | **live (phase 7)** — 1 call/scan, no key   |
 | eBay Browse API (free 5k req/day)                     | live prices                                          | optional, phase 8                          |
 | hobbyDB / Funko official                              | —                                                    | ruled out (ToS / no API)                   |
 

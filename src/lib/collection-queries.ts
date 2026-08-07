@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, ilike, isNotNull, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, inArray, isNotNull, ne, or, sql, type SQL } from "drizzle-orm";
 
 import { db } from "@/db";
 import { catalogWithOwnership, ownedFigures, referenceFigures } from "@/db/schema";
@@ -113,6 +113,46 @@ export async function getAdminFigure(id: string): Promise<AdminCatalogFigure | n
     .limit(1);
 
   return figure ?? null;
+}
+
+/**
+ * The catalog rows already carrying a scanned barcode.
+ *
+ * Both spellings of the code are passed in (`upcLookupForms()`): the column is text and
+ * may hold the twelve-digit UPC-A or the thirteen-digit EAN-13 of the same product, and a
+ * lookup that knew only one of them would miss the row and spend one of the hundred daily
+ * UPCitemdb calls rediscovering a figure we already have.
+ *
+ * More than one row can come back — exclusives share codes (ADR-006) — which is why this
+ * returns a list and `chooseScanTarget()` decides which one the confirm step opens.
+ */
+export function findFiguresByUpc(forms: readonly string[]): Promise<AdminCatalogFigure[]> {
+  if (forms.length === 0) return Promise.resolve([]);
+
+  return db
+    .select(adminCatalogColumns)
+    .from(catalogWithOwnership)
+    .where(inArray(catalogWithOwnership.upc, [...forms]))
+    .orderBy(asc(catalogWithOwnership.popNumber), asc(catalogWithOwnership.name))
+    .limit(SEARCH_RESULT_LIMIT);
+}
+
+/**
+ * The barcode a catalog row already knows, straight off the table.
+ *
+ * Read from `reference_figures` rather than from the ownership view because this is the
+ * input to a WRITE decision (`decideUpcBackfill`): the view is a join that could in
+ * principle be replaced, and "what is in the column right now" is a question only the
+ * column can answer.
+ */
+export async function getReferenceUpc(id: string): Promise<string | null> {
+  const [row] = await db
+    .select({ upc: referenceFigures.upc })
+    .from(referenceFigures)
+    .where(eq(referenceFigures.id, id))
+    .limit(1);
+
+  return row?.upc ?? null;
 }
 
 /** Wide enough to hold every row that shares a number; `variantSiblings()` does the deciding. */

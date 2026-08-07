@@ -7,8 +7,9 @@ import {
 } from "@/lib/quick-add";
 import { type ReferenceSearchQuery } from "@/lib/collection-form";
 
-import { Panel, PixelLink, fieldClass, labelClass, pixelButton } from "../ui";
+import { Panel, PixelLink, fieldClass, labelClass } from "../ui";
 import { FigureCardLink, QuickAddErrors, QuickAddRail, QuickAddScreen } from "./quick-add-ui";
+import { ScanButton } from "./scan-button";
 
 /**
  * Step 1 — one box, one tap.
@@ -69,16 +70,12 @@ export function IdentifyStep({
           </PixelButton>
         </form>
 
-        {/* Phase 7 lands here. Rendered disabled with no handler — a button that promises a
-            camera it does not have is worse than a button that says SOON. */}
-        <button
-          type="button"
-          disabled
-          aria-disabled="true"
-          className={`${pixelButton.quiet} mt-3 w-full opacity-50`}
-        >
-          {QUICK_ADD_COPY.scanSoon}
-        </button>
+        {/*
+         * Phase 7 landed here. The ONE client component in the flow, and it stays one
+         * button wide: the overlay and the wasm behind it are dynamically imported when
+         * it is pressed, so typing a number still costs no JavaScript at all.
+         */}
+        <ScanButton />
       </Panel>
 
       <QuickAddErrors codes={errors} />

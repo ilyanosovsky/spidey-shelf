@@ -19,8 +19,9 @@ import { Panel } from "../ui";
  * The furniture every Quick Add step sits in: the step rail, the figure summary, the chips
  * and the error list.
  *
- * All of it is server-rendered and none of it takes a callback — the flow has no client
- * JavaScript at all, so "interactive" here means a link or a submit button and nothing else.
+ * All of it is server-rendered and none of it takes a callback: "interactive" here means a
+ * link or a submit button and nothing else. The flow's one client component is the SCAN
+ * button on step 1, and it deliberately lives outside this file.
  */
 
 /** The three frames the owner actually walks. `new` and `done` are detours off the rail. */
@@ -30,9 +31,13 @@ const RAIL: readonly { step: QuickAddStep; label: string }[] = [
   { step: "details", label: "3 DETAILS" },
 ];
 
-/** Which rail entry lights up for a step — `new` belongs to step 1, `done` to step 3. */
+/**
+ * Which rail entry lights up for a step — `new` belongs to step 1, `done` to step 3.
+ * `scan-result` belongs to step 1 too: a scan IS the find, done with a camera.
+ */
 const RAIL_POSITION: Record<QuickAddStep, QuickAddStep> = {
   identify: "identify",
+  "scan-result": "identify",
   new: "identify",
   confirm: "confirm",
   details: "details",
