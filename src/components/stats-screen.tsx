@@ -8,6 +8,7 @@ import {
 import { type PublicShelfEntry } from "@/lib/showcase";
 
 import { LCDCounter } from "./lcd-counter";
+import { MapModal } from "./map-modal";
 import { PixelFrame } from "./pixel-frame";
 import { PublicNav } from "./public-nav";
 import { SightingsLegend, SightingsMap } from "./sightings-map";
@@ -24,9 +25,12 @@ import { WebRadar } from "./web-radar";
 export function StatsScreen({
   progress,
   entries,
+  isAdmin = false,
 }: {
   progress: readonly CategoryProgress[];
   entries: readonly PublicShelfEntry[];
+  /** A verified admin session — the only thing it changes here is the nav's fifth tab. */
+  isAdmin?: boolean;
 }) {
   const counters = vaultCounters(progress);
   const timeline = acquisitionTimeline(entries);
@@ -39,7 +43,7 @@ export function StatsScreen({
       tabIndex={-1}
       className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-5 p-4 sm:p-6"
     >
-      <PublicNav pathname="/stats" />
+      <PublicNav pathname="/stats" isAdmin={isAdmin} />
 
       <PixelFrame as="header" className="p-4 sm:p-5">
         <h1 className="font-pixel text-sm leading-relaxed tracking-wider text-cream">
@@ -71,7 +75,16 @@ export function StatsScreen({
             <p className="text-sm text-cream/70">Nothing pinned to the map yet.</p>
           ) : (
             <>
-              <SightingsMap data={sightings} />
+              {/*
+               * The map is handed to `MapModal` as a rendered ReactNode, so it stays a server
+               * component and the client bundle gets a button and a `<dialog>` rather than
+               * 27 KB of coastline. The legend stays out here on the page: it is the
+               * accessible version of the picture and belongs where the picture is read, not
+               * behind a tap.
+               */}
+              <MapModal>
+                <SightingsMap data={sightings} />
+              </MapModal>
               <SightingsLegend data={sightings} />
             </>
           )}

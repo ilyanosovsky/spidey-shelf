@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { PublicNav } from "@/components/public-nav";
 import { FIGURE_CATEGORY_LABELS } from "@/lib/categories";
 import { countStoriesOwed, getVaultStats } from "@/lib/collection-queries";
 import { requireAdmin } from "@/lib/dal";
@@ -30,6 +31,14 @@ export default async function AdminPage() {
       tabIndex={-1}
       className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-5 p-4 sm:p-6"
     >
+      {/*
+       * The escape hatch (Phase 10). Before this the back office was a cul-de-sac: every
+       * admin screen linked only to other admin screens, so getting back to the shelf meant
+       * editing the address bar. `isAdmin` is a constant here — `requireAdmin()` above is
+       * what makes it one.
+       */}
+      <PublicNav pathname="/admin" isAdmin />
+
       <Panel>
         <h1 className="font-pixel text-center text-lg leading-relaxed text-cream">
           VAULT

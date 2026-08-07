@@ -1,3 +1,4 @@
+import type { OwnedFigureRow } from "@/lib/collection-queries";
 import { type AdminCatalogFigure } from "@/lib/quick-add";
 import { type CatalogSearchResult, type PublicCatalogFigure } from "@/lib/search";
 import { type PublicShelfEntry } from "@/lib/showcase";
@@ -219,3 +220,35 @@ export const VARIANT_FIXTURE: AdminCatalogFigure[] = [
     category: "friends_foes",
   }),
 ];
+
+/**
+ * A shelf row as the ADMIN list sees it — the `owned_figures` columns LEFT-joined onto the
+ * catalog, which is why every catalog field is nullable here and only here.
+ *
+ * The type is imported for its shape only (`import type`, so nothing from
+ * `collection-queries.ts` — and therefore nothing `server-only` — is pulled into a jsdom
+ * test run).
+ */
+export function ownedRow(overrides: Partial<OwnedFigureRow> = {}): OwnedFigureRow {
+  return {
+    id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    referenceFigureId: "11111111-1111-4111-8111-111111111111",
+    status: "mine",
+    isPublic: true,
+    acquiredAt: "2023-12-28",
+    acquiredCity: "Haifa",
+    acquiredCountry: "IL",
+    story: "Found it in a tiny shop off Ben Gurion.",
+    needsStory: false,
+    quantity: 1,
+    createdAt: new Date("2026-08-06T10:00:00.000Z"),
+    popNumber: 3,
+    name: "Spider-Man",
+    category: "peter",
+    productLine: "Pop! Marvel",
+    exclusivity: null,
+    slug: "pop-marvel-spider-man-3",
+    imagePath: null,
+    ...overrides,
+  };
+}

@@ -31,10 +31,13 @@ export function ShelfScreen({
   entries,
   progress,
   filter,
+  isAdmin = false,
 }: {
   entries: readonly PublicShelfEntry[];
   progress: ShelfProgress;
   filter: ShelfFilter;
+  /** A verified admin session — the only thing it changes here is the nav's fifth tab. */
+  isAdmin?: boolean;
 }) {
   const visible = filterShelf(entries, filter);
   const ribbon = newSightings(entries);
@@ -47,7 +50,7 @@ export function ShelfScreen({
       tabIndex={-1}
       className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-5 p-4 sm:p-6"
     >
-      <PublicNav pathname="/" />
+      <PublicNav pathname="/" isAdmin={isAdmin} />
 
       <PixelFrame as="header" className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">

@@ -26,11 +26,14 @@ export function SearchScreen({
   query,
   parsed,
   results,
+  isAdmin = false,
 }: {
   /** The raw `?q=`, echoed back into the box so it can be edited. */
   query: string;
   parsed: PublicSearchQuery;
   results: readonly CatalogSearchResult[];
+  /** A verified admin session — the only thing it changes here is the nav's fifth tab. */
+  isAdmin?: boolean;
 }) {
   const ordered = orderSearchResults(results);
   const searched = parsed.kind !== "empty";
@@ -41,7 +44,7 @@ export function SearchScreen({
       tabIndex={-1}
       className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-5 p-4 sm:p-6"
     >
-      <PublicNav pathname="/search" />
+      <PublicNav pathname="/search" isAdmin={isAdmin} />
 
       <PixelFrame as="header" className="p-4 sm:p-5">
         <h1 className="font-pixel text-sm leading-relaxed tracking-wider text-cream">GIFT CHECK</h1>
