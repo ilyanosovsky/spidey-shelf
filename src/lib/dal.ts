@@ -31,3 +31,16 @@ export async function requireAdmin(): Promise<SessionPayload> {
   if (!session) redirect("/login");
   return session;
 }
+
+/**
+ * "Is the owner looking at this page?" — the question the nav asks (Phase 10).
+ *
+ * Never a guard: the only thing it may decide is whether the CONSOLE tab is rendered. It is
+ * a full JWT verification rather than a cookie-presence check, so a hand-written
+ * `spidey_session=x` shows a guest's nav, and it is safe on every public page because they
+ * are all `force-dynamic` already (reading cookies would otherwise opt them out of static
+ * rendering — see docs/wiki/Architecture.md).
+ */
+export async function isAdminSession(): Promise<boolean> {
+  return (await getSession()) !== null;
+}

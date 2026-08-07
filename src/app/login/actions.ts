@@ -44,7 +44,14 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
   redirect("/admin");
 }
 
-/** Drops the session cookie. Re-verifies first, per the "every server action" rule. */
+/**
+ * Drops the session cookie. Re-verifies first, per the "every server action" rule.
+ *
+ * Lands on the **public shelf**, not back on `/login` (Phase 10). Logging out is leaving the
+ * back office, and the old destination was a dead end: a password box, with nothing on it
+ * linking anywhere, for someone who has just said they are done. `/` is where a visitor
+ * starts, which is what the owner has just become.
+ */
 export async function logoutAction(): Promise<void> {
   const session = await getSession();
   const cookieStore = await cookies();
@@ -53,5 +60,5 @@ export async function logoutAction(): Promise<void> {
     cookieStore.delete({ name: SESSION_COOKIE_NAME, path: "/" });
   }
 
-  redirect("/login");
+  redirect("/");
 }

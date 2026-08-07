@@ -28,6 +28,7 @@ export function WishlistScreen({
   figures,
   filter,
   prices,
+  isAdmin = false,
 }: {
   figures: readonly PublicCatalogFigure[];
   filter: ShelfFilter;
@@ -37,6 +38,8 @@ export function WishlistScreen({
    * complete answer here, not a degraded one.
    */
   prices?: ReadonlyMap<string, string>;
+  /** A verified admin session — the only thing it changes here is the nav's fifth tab. */
+  isAdmin?: boolean;
 }) {
   const visible = orderWishlist(filterWishlist(figures, filter));
   const tabs = wishlistTabs(figures);
@@ -47,7 +50,7 @@ export function WishlistScreen({
       tabIndex={-1}
       className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-5 p-4 sm:p-6"
     >
-      <PublicNav pathname="/wishlist" />
+      <PublicNav pathname="/wishlist" isAdmin={isAdmin} />
 
       <header>
         <ToothedBanner as="h1">{wantedHeadline(figures)}</ToothedBanner>

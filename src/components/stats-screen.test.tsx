@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { SHELF_FIXTURE } from "@/test/fixtures";
 import { normalizeCategoryProgress } from "@/lib/stats";
 
+import { MAP_MODAL_COPY } from "./map-modal";
 import { StatsScreen } from "./stats-screen";
 import { WebRadar } from "./web-radar";
 
@@ -55,6 +56,27 @@ describe("StatsScreen", () => {
       .map((node) => node.textContent);
     expect(cities[0]).toContain("MOSCOW");
     expect(cities).toHaveLength(4);
+  });
+
+  it("offers the map as a modal, with the legend left out on the page", () => {
+    render(<StatsScreen progress={PROGRESS} entries={SHELF_FIXTURE} />);
+
+    const map = screen.getByText("SIGHTINGS MAP").closest("section") as HTMLElement;
+    expect(within(map).getByRole("button", { name: MAP_MODAL_COPY.open })).toBeInTheDocument();
+    expect(within(map).getByText(MAP_MODAL_COPY.expand)).toBeInTheDocument();
+
+    // Closed on arrival, and the legend's four cities are on the page, not behind the tap.
+    expect(map.querySelector("dialog")?.open).toBe(false);
+    expect(within(map).getAllByRole("listitem")).toHaveLength(4);
+  });
+
+  it("shows the owner a CONSOLE tab and a visitor four tabs", () => {
+    const { unmount } = render(<StatsScreen progress={PROGRESS} entries={SHELF_FIXTURE} />);
+    expect(screen.queryByRole("link", { name: "CONSOLE" })).not.toBeInTheDocument();
+    unmount();
+
+    render(<StatsScreen progress={PROGRESS} entries={SHELF_FIXTURE} isAdmin />);
+    expect(screen.getByRole("link", { name: "CONSOLE" })).toHaveAttribute("href", "/admin");
   });
 
   it("tells a phone how to install the shelf, without pretending to be able to do it", () => {

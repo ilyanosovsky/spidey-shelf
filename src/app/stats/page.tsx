@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { StatsScreen } from "@/components/stats-screen";
 import { getCatalogProgress } from "@/lib/catalog-queries";
+import { isAdminSession } from "@/lib/dal";
 import { listPublicShelf } from "@/lib/showcase-queries";
 import { normalizeCategoryProgress } from "@/lib/stats";
 
@@ -20,7 +21,17 @@ export const metadata: Metadata = {
 };
 
 export default async function StatsPage() {
-  const [progress, entries] = await Promise.all([getCatalogProgress(), listPublicShelf()]);
+  const [progress, entries, isAdmin] = await Promise.all([
+    getCatalogProgress(),
+    listPublicShelf(),
+    isAdminSession(),
+  ]);
 
-  return <StatsScreen progress={normalizeCategoryProgress(progress)} entries={entries} />;
+  return (
+    <StatsScreen
+      progress={normalizeCategoryProgress(progress)}
+      entries={entries}
+      isAdmin={isAdmin}
+    />
+  );
 }

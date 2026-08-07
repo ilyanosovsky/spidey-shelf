@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { PublicNav } from "@/components/public-nav";
 import { getOwnedFigure } from "@/lib/collection-queries";
 import { requireAdmin } from "@/lib/dal";
 
@@ -34,6 +35,8 @@ export default async function EditOwnedFigurePage({ params }: { params: Promise<
       tabIndex={-1}
       className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 p-4 sm:p-6"
     >
+      <PublicNav pathname="/admin/collection" isAdmin />
+
       <Panel>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-pixel text-base leading-relaxed text-cream">EDIT SIGHTING</h1>

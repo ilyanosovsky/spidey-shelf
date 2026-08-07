@@ -184,6 +184,15 @@ what makes Phase 9 an interim rather than a fork in the road.
   - Step 1's `⌖ SCAN THE BOX` button is the Phase 7 scanner and the flow's only client
     JavaScript — see below.
 - **Scanner** (Phase 7): see [Barcode scanner](#barcode-scanner-phase-7).
+- **Session-aware nav** (Phase 10): every page asks `isAdminSession()` (`src/lib/dal.ts`) and
+  passes the boolean to `PublicNav`, which appends a fifth `CONSOLE → /admin` tab for the
+  owner. Three things make that safe rather than clever: it is a **verified signature**, not
+  cookie presence, so a forged `spidey_session` renders a guest's nav; the item is **never
+  constructed** for a guest, so no `CONSOLE` label and no `/admin` href exists in the HTML to
+  find; and reading cookies costs nothing here because every public page is already
+  `force-dynamic` (a static page would have been opted out by the read). It is UX only — the
+  gate is still `requireAdmin()`. `logoutAction` now lands on `/`, since leaving the back
+  office should not mean arriving at a password box.
 - **Auth**: single admin; jose-signed httpOnly cookie (`spidey_session`, HS256, 30 days);
   bcrypt hash in env; the session is re-verified through `requireAdmin()` in
   `src/lib/dal.ts` inside every admin page and server action. `src/proxy.ts` (Next 16's
@@ -436,8 +445,10 @@ match (`src/lib/collection.ts`, pure and unit-tested); an unresolved row fails t
 than land as a dangling name. Idempotency key: `reference_figure_id + acquired_at`.
 
 The same data is editable at `/admin/collection` — a server-rendered list with `ALL` /
-`NEEDS STORY` filter chips, and an edit form. Adding moved to Quick Add (`/admin/add`) in
-Phase 6; the only client component left in the admin is the delete confirm. Every server
+`NEEDS STORY` filter chips, a **box-art thumbnail per row** (Phase 10, the same `BoxArt` the
+public grid uses, so the two can never disagree about a figure's picture), and an edit form.
+Adding moved to Quick Add (`/admin/add`) in Phase 6; the client components left in the admin
+are the delete confirm, the scanner and the upload panel. Every server
 action calls `requireAdmin()` before it touches a row — `src/proxy.ts` is an optimistic
 redirect and CVE-2025-29927 showed a proxy check can be skipped outright, so the check inside
 the action is the real gate, and `src/app/admin/add/actions.test.ts` asserts that each of the

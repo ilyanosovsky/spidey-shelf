@@ -1,4 +1,5 @@
 import { ShelfScreen } from "@/components/shelf-screen";
+import { isAdminSession } from "@/lib/dal";
 import { getShelfProgress, listPublicShelf } from "@/lib/showcase-queries";
 import { parseShelfFilter } from "@/lib/showcase";
 
@@ -21,7 +22,13 @@ export default async function Home({
   const { cat } = await searchParams;
   const filter = parseShelfFilter(cat);
 
-  const [entries, progress] = await Promise.all([listPublicShelf(), getShelfProgress()]);
+  // `isAdminSession()` is the nav's CONSOLE tab and nothing else — a verified signature,
+  // deduped by React `cache()` with any other session read on this request.
+  const [entries, progress, isAdmin] = await Promise.all([
+    listPublicShelf(),
+    getShelfProgress(),
+    isAdminSession(),
+  ]);
 
-  return <ShelfScreen entries={entries} progress={progress} filter={filter} />;
+  return <ShelfScreen entries={entries} progress={progress} filter={filter} isAdmin={isAdmin} />;
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { SearchScreen } from "@/components/search-screen";
 import { searchCatalog } from "@/lib/catalog-queries";
+import { isAdminSession } from "@/lib/dal";
 import { parseSearchQuery, searchQueryValue } from "@/lib/search";
 
 /**
@@ -26,7 +27,9 @@ export default async function SearchPage({
 }) {
   const { q } = await searchParams;
   const parsed = parseSearchQuery(q);
-  const results = await searchCatalog(parsed);
+  const [results, isAdmin] = await Promise.all([searchCatalog(parsed), isAdminSession()]);
 
-  return <SearchScreen query={searchQueryValue(q)} parsed={parsed} results={results} />;
+  return (
+    <SearchScreen query={searchQueryValue(q)} parsed={parsed} results={results} isAdmin={isAdmin} />
+  );
 }

@@ -99,6 +99,36 @@ body {
   }
 }
 
+/*
+ * The expanded SIGHTINGS MAP (Phase 10). One fade and nothing that travels — a modal that
+ * flies in from somewhere is exactly the animation a map does not need.
+ *
+ * Unlike `.ticker-track` and `.scanline` this needs NO by-name kill under reduced motion:
+ * the global rule below shortens the animation to 0.01ms, and the end state of a fade is the
+ * state we want (fully opaque). Those two are parked wrong at the end; this one is not.
+ */
+.map-modal[open] {
+  animation: spidey-fade-in 140ms ease-out;
+}
+
+.map-modal::backdrop {
+  background-color: rgb(16 20 24 / 0.82);
+}
+
+/* Momentum scrolling inside the modal — iOS stops the map dead without it. */
+.map-modal-scroller {
+  -webkit-overflow-scrolling: touch;
+}
+
+@keyframes spidey-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

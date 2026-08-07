@@ -55,9 +55,12 @@ sets the minimum tab width. `PETER PARKER` doubles as the counter caption
 ## Core components
 
 Built in Phase 4, all in `src/components/` and all **server components**. Everything on the
-public site is still server-rendered except two deliberate exceptions — `ShareButton` below
-(the native share sheet is not something a server can hand over) and Phase 9's `BoxArtImage`
-(an `onError` swap is a browser event):
+public site is still server-rendered except three deliberate exceptions — `ShareButton` below
+(the native share sheet is not something a server can hand over), Phase 9's `BoxArtImage` (an
+`onError` swap is a browser event) and Phase 10's `MapModal` (opening a dialog is a click).
+All three keep what they wrap on the server: the two picture components take their fallback
+and their map as **rendered ReactNodes**, so the sprite geometry and the 27 KB landmass path
+never enter a browser bundle:
 
 | Component        | Props                                                   | Notes                                                                                                                                                                                                 |
 | ---------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -75,13 +78,13 @@ Category hues (`PixelSpiderArt`, card frames, category chips): `peter` → coral
 
 Added in Phase 5 (search, wishlist, stats):
 
-| Component      | Props           | Notes                                                                                                                                                                                                                                 |
-| -------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VerdictStamp` | `verdict`       | the answer, stamped: green `OWNED` · coral `NOT OWNED YET` + amber `GIFT IDEA` chip · coral `NOT OWNED` + the lower-case footnote "was in the collection once". Rotated −2°, ink on both fills                                        |
-| `PublicNav`    | `pathname`      | SHELF · SEARCH · WISHLIST · STATS as a 4-column grid (never wraps at 375px), `min-h-11`, active item filled green. `pathname` is a prop — server components have no `usePathname()`                                                   |
-| `WantedCard`   | `figure`        | `FigureCard`'s twin for a catalog row nobody owns: coral frame, WANTED stamp top-right, links to `/search?q=<number>`. Not one big link — it holds the SHARE button                                                                   |
-| `ShareButton`  | `href`, `title` | one of the two client components on the public site: `navigator.share`, else clipboard + "LINK COPIED" for 2s. Resolves the relative href against the current origin                                                                  |
-| `WebRadar`     | `progress`      | the spider-web progress chart: one sector per bucket filled to `owned / total`, 4 rings, 12 threads. Geometry is pure and tested in `src/lib/radar.ts`; the SVG is `aria-hidden` and the legend beneath carries the labels and counts |
+| Component      | Props                  | Notes                                                                                                                                                                                                                                 |
+| -------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VerdictStamp` | `verdict`              | the answer, stamped: green `OWNED` · coral `NOT OWNED YET` + amber `GIFT IDEA` chip · coral `NOT OWNED` + the lower-case footnote "was in the collection once". Rotated −2°, ink on both fills                                        |
+| `PublicNav`    | `pathname`, `isAdmin?` | SHELF · SEARCH · WISHLIST · STATS as a 4-column grid (never wraps at 375px), `min-h-11`, active item filled green. `pathname` is a prop — server components have no `usePathname()`. Phase 10 added the amber CONSOLE tab             |
+| `WantedCard`   | `figure`               | `FigureCard`'s twin for a catalog row nobody owns: coral frame, WANTED stamp top-right, links to `/search?q=<number>`. Not one big link — it holds the SHARE button                                                                   |
+| `ShareButton`  | `href`, `title`        | one of the two client components on the public site: `navigator.share`, else clipboard + "LINK COPIED" for 2s. Resolves the relative href against the current origin                                                                  |
+| `WebRadar`     | `progress`             | the spider-web progress chart: one sector per bucket filled to `owned / total`, 4 rings, 12 threads. Geometry is pure and tested in `src/lib/radar.ts`; the SVG is `aria-hidden` and the legend beneath carries the labels and counts |
 
 `WebRadar` fills **linearly and honestly** — at 11/120 the peter wedge really is a sliver.
 No minimum-visible-bar fudge: the counters next to it are the point of the screen, and a
@@ -205,6 +208,51 @@ closed-table rule as `QUICK_ADD_COPY` and `SCAN_COPY`: `BOX ART` ·
 The panel sits **above** the sighting form and outside it, because box art belongs to the
 catalog row rather than to the sighting, and because uploading is immediate — there is no
 SAVE, and a field inside a form promises otherwise.
+
+Added in Phase 10 (the owner's own feedback after a week of using it):
+
+| Component   | Props                               | Notes                                                                                                                                                                                                 |
+| ----------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MapModal`  | `children` (the map as a ReactNode) | the `⤢ EXPAND` chip over the SIGHTINGS MAP and the `<dialog>` behind it. The map is passed **rendered**, so it stays a server component; the client gets a button, a dialog and one boolean           |
+| `VaultCard` | `figure` (`OwnedFigureRow`)         | one row of THE VAULT, now opening with a 64px (80px from `sm`) `BoxArt` square. Lives in `src/app/admin/collection/vault-card.tsx` — extracted from the page so the two art states can be unit-tested |
+
+**The nav's fifth tab.** `navItemsFor(isAdmin)` in `src/lib/nav.ts` appends
+`CONSOLE → /admin` for a **verified** session, and a guest's HTML contains neither the label
+nor the href — the item is not constructed, not hidden. It cannot join the row on a phone:
+`WISHLIST` at 10px in Press Start 2P is ~80px wide and a fifth of 375px leaves 65px, so
+CONSOLE is `col-span-4` (a full-width amber bar under the four tabs, the easiest target on the
+screen) and `sm:col-span-1` above. Amber because it leaves the public site — a door, not a
+fifth screen. Outlined amber-on-navy (8.79∶1) when it is elsewhere, filled ink-on-amber
+(10.41∶1) when it is where you are, which is the same "filled = current" rule the green tabs
+follow. The same nav renders on `/admin`, `/admin/collection`, the edit screen and all six
+Quick Add frames, so the shelf is one tap from anywhere in the back office.
+
+### The expanded SIGHTINGS MAP (Phase 10)
+
+A `⤢ EXPAND` chip sits in the panel's top-right and the whole map is a button
+(`aria-label="Expand the sightings map"`) — an **overlay** button rather than a wrapper, since
+`<button>` may only hold phrasing content and the map is an `<svg>` with a caption under it.
+
+| Piece        | What                                                                                                                         |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| the chip     | amber, ink text, pixel font, `top-2 right-2` — the one visible affordance                                                    |
+| the dialog   | native `<dialog>` + `showModal()`: full-viewport, transparent, with a navy panel inside a `border-4 border-blue-frame` frame |
+| the map      | the same server-rendered SVG at `width: 250%` inside an `overflow: auto` container, scrolled to the middle when it opens     |
+| the backdrop | `.map-modal::backdrop`, ink at 82%; a click on the gutter around the panel closes, a click inside does not                   |
+| the exit     | amber `CLOSE`, full width, pinned at the bottom of the panel — thumb zone — plus Escape, which is the platform's             |
+| the motion   | one 140ms opacity fade (`.map-modal[open]`) and nothing that travels                                                         |
+
+Under `prefers-reduced-motion` this needs **no by-name kill**, unlike `.ticker-track` and
+`.scanline`: the global "shorten every animation to 0.01ms" rule leaves a fade at its end
+state, which is the opaque one we want. Those two are parked wrong at the end; a fade is not.
+
+The legend stays on the page under the panel rather than being duplicated inside the modal —
+it is the accessible version of the picture and belongs where the picture is read.
+
+Phase 10 wording lives in `MAP_MODAL_COPY` (`src/components/map-modal.tsx`), the same closed
+table as the others: `⤢ EXPAND` · `Expand the sightings map` (the button's accessible name;
+the chip is `aria-hidden` decoration) · `SIGHTINGS MAP` · `DRAG TO EXPLORE` · `CLOSE`. Plus
+one nav label, `CONSOLE`, in `src/lib/nav.ts`.
 
 ### App icons and the favicon (Phase 8)
 

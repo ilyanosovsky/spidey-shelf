@@ -2,6 +2,7 @@ import Link from "next/link";
 import { type ReactNode } from "react";
 
 import { BoxArt } from "@/components/box-art";
+import { PublicNav } from "@/components/public-nav";
 import { figureCategoryLabel } from "@/lib/categories";
 import { formatPopNumber } from "@/lib/format";
 import {
@@ -75,6 +76,8 @@ export function QuickAddScreen({ children }: { children: ReactNode }) {
       tabIndex={-1}
       className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 p-4 sm:p-6"
     >
+      {/* One nav for all six frames — the public site is one tap away mid-add too. */}
+      <PublicNav pathname="/admin/add" isAdmin />
       {children}
     </main>
   );

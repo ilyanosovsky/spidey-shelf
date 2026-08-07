@@ -12,6 +12,7 @@ import { categoryAccent } from "@/components/pixel-spider-art";
 import { PublicNav } from "@/components/public-nav";
 import { ToothedBanner } from "@/components/toothed-banner";
 import { figureCategoryLabel } from "@/lib/categories";
+import { isAdminSession } from "@/lib/dal";
 import { getMarketPanel } from "@/lib/ebay/market";
 import { MARKET_COPY } from "@/lib/ebay/snapshot";
 import { countryFlagEmoji, formatPlace, formatPopNumber, formatSightingDate } from "@/lib/format";
@@ -70,11 +71,14 @@ export default async function FigurePage({ params }: { params: Promise<{ slug: s
   // Awaited inside the render: the panel is part of the page, not a hole that fills in later.
   // Without `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` this returns `null` before it touches the
   // database, so the key-less deployment issues no extra query and no request.
-  const market = await getMarketPanel({
-    slug: current.slug,
-    name: current.name,
-    popNumber: current.popNumber,
-  });
+  const [market, isAdmin] = await Promise.all([
+    getMarketPanel({
+      slug: current.slug,
+      name: current.name,
+      popNumber: current.popNumber,
+    }),
+    isAdminSession(),
+  ]);
 
   return (
     <main
@@ -82,7 +86,7 @@ export default async function FigurePage({ params }: { params: Promise<{ slug: s
       tabIndex={-1}
       className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-5 p-4 sm:p-6"
     >
-      <PublicNav pathname={`/figure/${current.slug}`} />
+      <PublicNav pathname={`/figure/${current.slug}`} isAdmin={isAdmin} />
 
       <PixelFrame as="header" className="p-5" accent={accent}>
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
