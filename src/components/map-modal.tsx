@@ -142,7 +142,17 @@ export function MapModal({
               ref={scrollerRef}
               className="map-modal-scroller flex-1 overflow-auto overscroll-contain rounded border-2 border-ink-px"
             >
-              <div style={{ width: `${MAP_MODAL_ZOOM * 100}%` }}>{children}</div>
+              {/*
+               * min-h-full + centering: a wide crop at 2.5× is much shorter than the
+               * scroller, and without this the map hugs the top with a slab of empty navy
+               * below it. Content taller than the scroller is unaffected — it just scrolls.
+               */}
+              <div
+                className="flex min-h-full flex-col justify-center"
+                style={{ width: `${MAP_MODAL_ZOOM * 100}%` }}
+              >
+                {children}
+              </div>
             </div>
 
             {/* Bottom, and full width: on a 6" phone the top of the screen is not reachable. */}
