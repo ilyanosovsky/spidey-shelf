@@ -28,7 +28,11 @@ export default async function EditOwnedFigurePage({ params }: { params: Promise<
   if (!figure.referenceFigureId) notFound();
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 p-4 sm:p-6">
+    <main
+      id="main"
+      tabIndex={-1}
+      className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 p-4 sm:p-6"
+    >
       <Panel>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-pixel text-base leading-relaxed text-cream">EDIT SIGHTING</h1>

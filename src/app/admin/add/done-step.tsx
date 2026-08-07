@@ -58,11 +58,11 @@ export function DoneStep({
 
           <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
             <div>
-              <dt className="font-pixel text-[8px] tracking-wider text-blue-frame">DATE</dt>
+              <dt className="font-pixel text-[10px] tracking-wider text-cream/80">DATE</dt>
               <dd className="mt-1 text-cream/80 tabular-nums">{formatSightingDate(acquiredAt)}</dd>
             </div>
             <div>
-              <dt className="font-pixel text-[8px] tracking-wider text-blue-frame">PLACE</dt>
+              <dt className="font-pixel text-[10px] tracking-wider text-cream/80">PLACE</dt>
               <dd className="mt-1 text-cream/80">{place}</dd>
             </div>
           </dl>

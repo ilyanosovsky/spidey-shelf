@@ -29,7 +29,7 @@ export function DeleteOwnedFigure({ id, name }: { id: string; name: string }) {
   return (
     <form action={deleteOwnedFigureAction} className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="id" value={id} />
-      <p className="font-pixel w-full text-[8px] leading-relaxed text-coral">
+      <p className="font-pixel w-full text-[10px] leading-relaxed text-coral">
         DELETE {name.toUpperCase()} FOR GOOD?
       </p>
       <button type="submit" className={pixelButton.danger}>

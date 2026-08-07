@@ -136,6 +136,26 @@ comparisons). The FK is `ON DELETE SET NULL` — deleting a catalog row must nev
 memory of owning the figure. Indexes: `reference_figure_id` (the view's join) and
 `created_at` (the "new sightings" ribbon).
 
+### `acquired_lat` / `acquired_lng` are unused, and stay that way for now (Phase 8)
+
+Both columns are **NULL on all 19 rows** and the SIGHTINGS MAP does not read them. The map's
+coordinates come from `src/lib/geo.ts`, a dictionary of the nine cities this collection came
+from, keyed `<alpha-2>:<normalised city>`. The dictionary wins on three counts:
+
+- **Retroactive.** It places every row that already exists, with no backfill pass over
+  hand-typed city names from a Notion export.
+- **No migration, no new failure mode.** A city it has never heard of becomes an
+  `UNCHARTED SECTORS` line under the map — the figure is named and its place printed — rather
+  than a NULL that has to be handled at three call sites.
+- **The admin flow is unchanged.** Quick Add stays "date, city, country, done". Filling these
+  columns honestly would mean a geocoder between the owner and a saved sighting, on a phone, in
+  a shop — the exact latency Phase 6 was designed to remove.
+
+The columns are kept rather than dropped: if per-figure precision ever matters (two shops in one
+city, or a figure bought at an airport rather than in the city it is filed under), they become
+the source and the dictionary becomes the fallback. Nothing is lost by waiting, and a column
+nobody writes costs 8 bytes of NULL bitmap. See [[Architecture]] for the map itself.
+
 No photo table: box art lives on the catalog row (`image_path`). A personal-photos table can
 be added later without breaking anything.
 
@@ -162,6 +182,37 @@ retyped. Run it **after** `npm run db:seed`.
 
 Live today: 19 rows — 15 `mine`, 4 `not_mine_anymore`, 0 without a catalog row; by category
 11 `peter`, 1 `spider_verse`, 2 `friends_foes`, 5 `other`.
+
+## price_snapshots — what eBay said, last time anyone looked (Phase 8)
+
+| Column              | Type                         | Notes                                 |
+| ------------------- | ---------------------------- | ------------------------------------- |
+| id                  | uuid pk                      |                                       |
+| reference_figure_id | uuid fk **unique**, not null | `ON DELETE CASCADE`                   |
+| currency            | varchar(3) not null          | ISO 4217, uppercase                   |
+| min_cents           | int                          | cheapest active listing in the sample |
+| median_cents        | int                          | the headline number                   |
+| listing_count       | int not null default 0       | how many listings the median covers   |
+| fetched_at          | timestamptz not null         | the TTL is measured from here         |
+
+Added by `drizzle/0004_price_snapshots.sql` (applied to the live database; 0 rows, because the
+owner has no eBay keys yet). Index on `fetched_at`, which is what the wishlist's "fresh
+snapshots only" read filters on.
+
+- **It is a cache, and it is the only table here that is.** `TRUNCATE price_snapshots` loses
+  nothing the collection is about, which is exactly why it is the only table with
+  `ON DELETE CASCADE`: a figure's prices are meaningless without the figure, unlike
+  `owned_figures`, where the memory of owning something outlives the catalog row
+  (`ON DELETE SET NULL`).
+- **One row per figure, ever.** The unique constraint on `reference_figure_id` is what makes
+  the write an `INSERT … ON CONFLICT DO UPDATE` instead of an insert plus a cleanup job.
+- **Money is integer cents, never a float.** `12.99` has no exact binary representation, and a
+  market signal that drifts by a cent per round trip is a bug report waiting to happen.
+- **`varchar(3)`, not `char(3)`** — the same lesson as `acquired_country`: Postgres' `char`
+  blank-pads, and the padding bites on every comparison.
+- **TTL is 24 hours**, applied both in SQL (the wishlist read) and in TypeScript
+  (`isSnapshotFresh()`, which is where the rule is written down and tested). Funko prices move
+  on release news and conventions, not on the hour.
 
 ## View: catalog_with_ownership
 

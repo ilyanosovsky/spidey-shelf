@@ -52,11 +52,12 @@ export function FigureCard({
           {formatPopNumber(entry.popNumber)}
         </span>
         {isNew ? (
-          <span
-            className="font-pixel absolute -top-1 -right-1 rounded border-2 border-ink-px bg-amber px-2 py-1 text-[10px] text-ink-px"
-            title="New sighting"
-          >
-            ★
+          // The star is the badge; the words are what a screen reader gets. `title` was
+          // doing neither job well — it is a tooltip on a device with no pointer, and it
+          // left the glyph itself to be announced as "black star".
+          <span className="font-pixel absolute -top-1 -right-1 rounded border-2 border-ink-px bg-amber px-2 py-1 text-[10px] text-ink-px">
+            <span aria-hidden="true">★</span>
+            <span className="sr-only">New sighting</span>
           </span>
         ) : null}
       </div>

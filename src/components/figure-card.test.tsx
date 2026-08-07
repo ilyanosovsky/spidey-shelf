@@ -53,11 +53,11 @@ describe("FigureCard", () => {
   it("stars a new sighting only when asked", () => {
     const entry = shelfEntry({ slug: "pop-marvel-spider-man-3" });
     const { unmount } = render(<FigureCard entry={entry} />);
-    expect(screen.queryByTitle("New sighting")).not.toBeInTheDocument();
+    expect(screen.queryByText("New sighting")).not.toBeInTheDocument();
     unmount();
 
     render(<FigureCard entry={entry} isNew />);
-    expect(screen.getByTitle("New sighting")).toBeInTheDocument();
+    expect(screen.getByText("New sighting")).toBeInTheDocument();
   });
 
   it("survives a figure with no number and no place", () => {

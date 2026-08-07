@@ -53,11 +53,43 @@ rather than leaving as an absence:
   from a phone. The overlay detects this and says `THE CAMERA NEEDS HTTPS.` rather than
   hanging.
 
-### Optional (Phase 8)
+### Optional (Phase 8): eBay prices
 
-| Var                                    | What                          |
-| -------------------------------------- | ----------------------------- |
-| `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET` | eBay Browse API (live prices) |
+| Var                  | What                                                | Where                 |
+| -------------------- | --------------------------------------------------- | --------------------- |
+| `EBAY_CLIENT_ID`     | the production keyset's **App ID (Client ID)**      | local `.env` · Vercel |
+| `EBAY_CLIENT_SECRET` | the production keyset's **Cert ID (Client Secret)** | local `.env` · Vercel |
+
+**Both or neither.** `isEbayConfigured()` needs the pair; a half-filled dashboard is treated as
+unconfigured, and with the feature off **nothing about prices renders, is queried or is
+fetched** — no panel on `/figure/[slug]`, no chips on `/wishlist`, no empty state explaining
+itself. That is the intended shipping condition today.
+
+#### How to get them
+
+1. Sign in at **developer.ebay.com** with a normal eBay account and join the developer program
+   (free; it asks for a name and an email, not a business).
+2. **Application Keys** → create an application. Two keysets appear, **Sandbox** and
+   **Production**. Take the **Production** one — sandbox has no real listings, so a sandbox
+   median is a number about nothing.
+3. From that keyset: **App ID (Client ID)** → `EBAY_CLIENT_ID`, **Cert ID (Client Secret)** →
+   `EBAY_CLIENT_SECRET`. The Dev ID is not used, and neither is a user token — the Browse
+   search this project makes is an _application_ call, so the client-credentials grant with the
+   `api_scope` scope is all it needs. Nothing here can act on the owner's eBay account.
+4. Add both to local `.env` and to Vercel (Production + Preview), then redeploy. No `$`-escaping
+   worry here — unlike the bcrypt hash, eBay keys are alphanumeric with dashes.
+
+> ⚠️ **The first deploy with real keys is also the first time this code meets the live API.**
+> The client was written against eBay's published Browse and OAuth contracts and tested against
+> fixtures (`src/lib/ebay/parse.test.ts`) — never against a real response. Open one figure page,
+> confirm the MARKET SIGNAL numbers look like the eBay search behind `SEE ON EBAY`, and if the
+> shapes differ, paste one real `item_summary/search` body into those fixtures and fix the
+> parser against it.
+
+The free tier is **5,000 Browse calls per day**, and the app is nowhere near it by design: a
+24-hour cache in `price_snapshots`, a refresh only from a figure page, one attempt with no
+retries, and a wishlist that reads the cache but can never fill it. See [[Architecture]] for the
+arithmetic.
 
 ### GitHub Actions secrets
 
@@ -102,6 +134,18 @@ per the storage ADR) so the collection is never one bad migration away from gone
 | `npm run db:seed`        | upserts every `data/catalog/*.csv` into `reference_figures` (safe to re-run)      |
 | `npm run db:seed:owned`  | upserts `data/collection/owned.csv` into `owned_figures` — run it after `db:seed` |
 | `./scripts/backup-db.sh` | `pg_dump` of the whole database (see above)                                       |
+
+## Asset scripts (run by hand, output committed)
+
+| Script                   | What it does                                                                                          |
+| ------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `npm run icons:generate` | redraws `public/icons/*.png`, `public/apple-touch-icon.png` and `src/app/favicon.ico` from the sprite |
+| `npm run map:generate`   | refetches Natural Earth 110m land and rewrites `src/lib/world-land.ts`                                |
+
+Neither runs in CI or on Vercel, and both write files that are **committed**. That is the point:
+`icons:generate` needs sharp (a native module) and `map:generate` needs the network, and a
+deploy that can fail because a CDN is slow or a prebuilt binary is missing — in order to produce
+a favicon — is a deploy with a new way to break. Re-run them when the spider changes.
 
 Never run `drizzle-kit push`: it diffs the live database against `schema.ts` and would drop
 the generated `search_vector` column, the trigram index and the `catalog_with_ownership`

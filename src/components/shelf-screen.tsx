@@ -42,7 +42,11 @@ export function ShelfScreen({
   const remaining = Math.max(progress.total - progress.owned, 0);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-5 p-4 sm:p-6">
+    <main
+      id="main"
+      tabIndex={-1}
+      className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-5 p-4 sm:p-6"
+    >
       <PublicNav pathname="/" />
 
       <PixelFrame as="header" className="p-5">
@@ -52,7 +56,7 @@ export function ShelfScreen({
             <span className="text-coral"> 🕷 </span>
             SHELF
           </h1>
-          <p className="font-pixel text-[10px] leading-relaxed tracking-wider text-blue-frame">
+          <p className="font-pixel text-[10px] leading-relaxed tracking-wider text-cream/80">
             {entries.length} SIGHTINGS LOGGED
           </p>
         </div>

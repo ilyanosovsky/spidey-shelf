@@ -272,7 +272,7 @@ export function ScannerOverlay({ onClose }: { onClose: () => void }) {
             {SCAN_COPY.aim}
           </p>
         ) : null}
-        <p className="font-pixel text-center text-[8px] leading-relaxed tracking-wider text-cream/60">
+        <p className="font-pixel text-center text-[10px] leading-relaxed tracking-wider text-cream/60">
           {SCAN_COPY.reloadHint}
         </p>
         {/* Always here, in every state — the keyboard is a first-class path (ADR-006). */}
@@ -336,7 +336,7 @@ function FailureNote({ state }: { state: ScanState }) {
       <p role="alert" className="font-pixel text-[10px] leading-relaxed tracking-wider text-coral">
         {headline}
       </p>
-      <p className="font-pixel mt-4 text-[8px] leading-relaxed tracking-wider text-cream/70">
+      <p className="font-pixel mt-4 text-[10px] leading-relaxed tracking-wider text-cream/70">
         {state.kind === "denied" ? SCAN_COPY.deniedHint : SCAN_COPY.fallbackHint}
       </p>
     </div>

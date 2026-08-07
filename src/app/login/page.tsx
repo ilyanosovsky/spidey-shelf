@@ -15,7 +15,11 @@ export default async function LoginPage() {
   if (await getSession()) redirect("/admin");
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center p-6">
+    <main
+      id="main"
+      tabIndex={-1}
+      className="flex min-h-dvh flex-col items-center justify-center p-6"
+    >
       <div className="w-full max-w-sm rounded-lg border-4 border-blue-frame bg-navy-deep p-6 shadow-[6px_6px_0_var(--color-ink-px)]">
         <h1 className="font-pixel text-center text-lg leading-relaxed text-cream">
           VAULT

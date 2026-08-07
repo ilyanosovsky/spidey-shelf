@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { FOCUS_RING } from "@/components/pixel-button";
 import { requireAdmin } from "@/lib/dal";
 import { listOwnedFigures } from "@/lib/collection-queries";
 import {
@@ -44,7 +45,11 @@ export default async function AdminCollectionPage({
   const figures = filterOwnedRows(all, filter);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-5 p-4 sm:p-6">
+    <main
+      id="main"
+      tabIndex={-1}
+      className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-5 p-4 sm:p-6"
+    >
       <Panel>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-pixel text-base leading-relaxed text-cream">
@@ -64,7 +69,7 @@ export default async function AdminCollectionPage({
               key={value}
               href={collectionFilterHref(value)}
               aria-current={value === filter ? "page" : undefined}
-              className={`font-pixel inline-flex min-h-11 items-center justify-center rounded border-2 px-3 py-2 text-[10px] tracking-wider ${
+              className={`font-pixel inline-flex min-h-11 items-center justify-center rounded border-2 px-3 py-2 text-[10px] tracking-wider ${FOCUS_RING} ${
                 value === filter
                   ? "border-ink-px bg-pop-green text-ink-px"
                   : "border-blue-frame text-cream"
@@ -123,11 +128,11 @@ export default async function AdminCollectionPage({
 
                 <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <dt className="font-pixel text-[8px] tracking-wider text-blue-frame">DATE</dt>
+                    <dt className="font-pixel text-[10px] tracking-wider text-cream/80">DATE</dt>
                     <dd className="mt-1 text-cream/80 tabular-nums">{figure.acquiredAt ?? "—"}</dd>
                   </div>
                   <div>
-                    <dt className="font-pixel text-[8px] tracking-wider text-blue-frame">PLACE</dt>
+                    <dt className="font-pixel text-[10px] tracking-wider text-cream/80">PLACE</dt>
                     <dd className="mt-1 text-cream/80">
                       {place(figure.acquiredCity, figure.acquiredCountry)}
                     </dd>
@@ -135,13 +140,13 @@ export default async function AdminCollectionPage({
                 </dl>
 
                 {figure.needsStory === true ? (
-                  <p className="font-pixel mt-4 inline-block rounded border-2 border-amber px-2 py-1 text-[8px] tracking-wider text-amber">
+                  <p className="font-pixel mt-4 inline-block rounded border-2 border-amber px-2 py-1 text-[10px] tracking-wider text-amber">
                     STORY OWED
                   </p>
                 ) : null}
 
                 {figure.isPublic === false ? (
-                  <p className="font-pixel mt-4 text-[8px] tracking-wider text-coral">
+                  <p className="font-pixel mt-4 text-[10px] tracking-wider text-coral">
                     HIDDEN FROM THE PUBLIC SHELF
                   </p>
                 ) : null}

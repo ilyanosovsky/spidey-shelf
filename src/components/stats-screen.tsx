@@ -1,3 +1,4 @@
+import { buildSightingsMap } from "@/lib/sightings-map";
 import {
   acquisitionCountries,
   acquisitionTimeline,
@@ -9,6 +10,7 @@ import { type PublicShelfEntry } from "@/lib/showcase";
 import { LCDCounter } from "./lcd-counter";
 import { PixelFrame } from "./pixel-frame";
 import { PublicNav } from "./public-nav";
+import { SightingsLegend, SightingsMap } from "./sightings-map";
 import { ToothedBanner } from "./toothed-banner";
 import { WebRadar } from "./web-radar";
 
@@ -29,9 +31,14 @@ export function StatsScreen({
   const counters = vaultCounters(progress);
   const timeline = acquisitionTimeline(entries);
   const countries = acquisitionCountries(entries);
+  const sightings = buildSightingsMap(entries);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-5 p-4 sm:p-6">
+    <main
+      id="main"
+      tabIndex={-1}
+      className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-5 p-4 sm:p-6"
+    >
       <PublicNav pathname="/stats" />
 
       <PixelFrame as="header" className="p-4 sm:p-5">
@@ -52,6 +59,22 @@ export function StatsScreen({
         </ToothedBanner>
         <PixelFrame className="mt-4 p-5">
           <WebRadar progress={progress} />
+        </PixelFrame>
+      </section>
+
+      <section aria-labelledby="sightings-map">
+        <ToothedBanner as="h2" className="max-w-[280px]">
+          <span id="sightings-map">SIGHTINGS MAP</span>
+        </ToothedBanner>
+        <PixelFrame className="mt-4 p-5">
+          {sightings.markers.length === 0 && sightings.uncharted.length === 0 ? (
+            <p className="text-sm text-cream/70">Nothing pinned to the map yet.</p>
+          ) : (
+            <>
+              <SightingsMap data={sightings} />
+              <SightingsLegend data={sightings} />
+            </>
+          )}
         </PixelFrame>
       </section>
 
@@ -118,6 +141,24 @@ export function StatsScreen({
           </p>
         </PixelFrame>
       </section>
+
+      {/*
+       * The install hint, and the only PWA affordance on the site.
+       *
+       * iOS has no `beforeinstallprompt`, so there is no button to render — Safari's own
+       * Share → Add to Home Screen is the whole flow, and a fake "INSTALL" button that opens
+       * a tutorial is worse than a sentence. One line of copy, no client JavaScript, and the
+       * same on every platform.
+       */}
+      <footer className="mt-auto pt-2 pb-[env(safe-area-inset-bottom)]">
+        <p className="font-pixel text-[10px] leading-relaxed tracking-wider text-cream/60">
+          {ADD_TO_HOME_SCREEN_HINT}
+        </p>
+      </footer>
     </main>
   );
 }
+
+/** Pixel font, so it stays short; sentence case would not survive at 10px anyway. */
+export const ADD_TO_HOME_SCREEN_HINT =
+  "ADD TO HOME SCREEN — SHARE ↑ THEN ADD TO HOME SCREEN, AND THE SHELF OPENS FULL-SCREEN.";

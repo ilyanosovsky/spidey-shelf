@@ -2,6 +2,9 @@
 
 import { useActionState } from "react";
 
+import { pixelButtonClass } from "@/components/pixel-button";
+import { fieldClass } from "@/app/admin/ui";
+
 import { loginAction, type LoginState } from "./actions";
 
 const initialState: LoginState = { error: null };
@@ -22,15 +25,13 @@ export function LoginForm() {
           autoComplete="current-password"
           required
           aria-describedby={state.error ? "login-error" : undefined}
-          className="rounded border-2 border-ink-px bg-lcd-bg px-3 py-3 text-base text-lcd-glow caret-lcd-glow outline-none focus-visible:border-blue-frame"
+          // The same LCD field the admin uses, focus ring included — this screen predates
+          // the shared classes and was quietly carrying its own copy of them.
+          className={fieldClass}
         />
       </div>
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="font-pixel rounded border-2 border-ink-px bg-amber px-4 py-3 text-[10px] tracking-wider text-ink-px shadow-[4px_4px_0_var(--color-ink-px)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[2px_2px_0_var(--color-ink-px)] disabled:opacity-60"
-      >
+      <button type="submit" disabled={pending} className={pixelButtonClass("primary")}>
         {pending ? "CHECKING…" : "ENTER THE VAULT"}
       </button>
 

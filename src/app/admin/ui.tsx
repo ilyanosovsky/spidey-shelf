@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { PIXEL_BUTTON_VARIANTS } from "@/components/pixel-button";
+import { FOCUS_RING, PIXEL_BUTTON_VARIANTS } from "@/components/pixel-button";
 import { figureCategoryLabel } from "@/lib/categories";
 
 /**
@@ -16,8 +16,14 @@ import { figureCategoryLabel } from "@/lib/categories";
 /** Amber CTA / green secondary / coral danger — pressed states shift 2px down-right. */
 export const pixelButton = PIXEL_BUTTON_VARIANTS;
 
-export const fieldClass =
-  "w-full rounded border-2 border-ink-px bg-lcd-bg px-3 py-3 text-base text-lcd-glow caret-lcd-glow outline-none focus-visible:border-blue-frame";
+/**
+ * The LCD text field. 16px (`text-base`) so iOS Safari does not zoom the page on focus.
+ *
+ * `outline-none` used to leave a focused field marked only by a border colour change from
+ * ink to blue — two dark colours, on a dark field, at 2px. The amber ring from the buttons
+ * goes on top of it, so "which field am I in" is answerable without staring.
+ */
+export const fieldClass = `w-full rounded border-2 border-ink-px bg-lcd-bg px-3 py-3 text-base text-lcd-glow caret-lcd-glow focus-visible:border-blue-frame ${FOCUS_RING}`;
 
 export const labelClass = "font-pixel text-[10px] tracking-wider text-amber";
 
@@ -37,7 +43,7 @@ export function LcdStat({ value, label }: { value: string; label: string }) {
   return (
     <div className="rounded border-2 border-ink-px bg-lcd-bg px-3 py-3 text-center">
       <p className="font-pixel text-sm tracking-widest text-lcd-glow tabular-nums">{value}</p>
-      <p className="font-pixel mt-2 text-[8px] leading-relaxed text-lcd-glow/70">{label}</p>
+      <p className="font-pixel mt-2 text-[10px] leading-relaxed text-lcd-glow/70">{label}</p>
     </div>
   );
 }
@@ -52,7 +58,7 @@ export function StatusChip({ status }: { status: string | null }) {
 
   return (
     <span
-      className={`font-pixel inline-block rounded border-2 px-2 py-1 text-[8px] tracking-wider ${tone}`}
+      className={`font-pixel inline-block rounded border-2 px-2 py-1 text-[10px] tracking-wider ${tone}`}
     >
       {isMine ? "MINE" : status === "not_mine_anymore" ? "GONE" : "UNKNOWN"}
     </span>
@@ -61,7 +67,7 @@ export function StatusChip({ status }: { status: string | null }) {
 
 export function CategoryChip({ category }: { category: string | null }) {
   return (
-    <span className="font-pixel inline-block rounded border-2 border-blue-frame px-2 py-1 text-[8px] tracking-wider text-blue-frame">
+    <span className="font-pixel inline-block rounded border-2 border-blue-frame px-2 py-1 text-[10px] tracking-wider text-cream/80">
       {figureCategoryLabel(category)}
     </span>
   );

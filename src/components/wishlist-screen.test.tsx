@@ -57,4 +57,28 @@ describe("WishlistScreen", () => {
 
     expect(screen.getAllByRole("button", { name: /^Share / })).toHaveLength(2);
   });
+
+  it("shows a price chip only on the cards a price is already cached for", () => {
+    const [first] = WISHLIST_FIXTURE;
+    render(
+      <WishlistScreen
+        figures={WISHLIST_FIXTURE}
+        filter="all"
+        prices={new Map([[first.slug, "~$25"]])}
+      />,
+    );
+
+    expect(screen.getAllByText("~$25")).toHaveLength(1);
+  });
+
+  it("looks exactly like Phase 5 when the owner has no eBay keys", () => {
+    const withoutPrices = render(<WishlistScreen figures={WISHLIST_FIXTURE} filter="all" />)
+      .container.innerHTML;
+    const withEmptyMap = render(
+      <WishlistScreen figures={WISHLIST_FIXTURE} filter="all" prices={new Map()} />,
+    ).container.innerHTML;
+
+    expect(withoutPrices).toBe(withEmptyMap);
+    expect(withoutPrices).not.toContain("~$");
+  });
 });

@@ -27,15 +27,26 @@ import { WantedCard } from "./wanted-card";
 export function WishlistScreen({
   figures,
   filter,
+  prices,
 }: {
   figures: readonly PublicCatalogFigure[];
   filter: ShelfFilter;
+  /**
+   * `slug → "~$24"` for the figures whose price is already cached and still fresh (Phase 8).
+   * Empty when the owner has no eBay keys, which is the current deployment — and empty is a
+   * complete answer here, not a degraded one.
+   */
+  prices?: ReadonlyMap<string, string>;
 }) {
   const visible = orderWishlist(filterWishlist(figures, filter));
   const tabs = wishlistTabs(figures);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-5 p-4 sm:p-6">
+    <main
+      id="main"
+      tabIndex={-1}
+      className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col gap-5 p-4 sm:p-6"
+    >
       <PublicNav pathname="/wishlist" />
 
       <header>
@@ -79,7 +90,7 @@ export function WishlistScreen({
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {visible.map((figure) => (
               <li key={figure.slug}>
-                <WantedCard figure={figure} />
+                <WantedCard figure={figure} price={prices?.get(figure.slug)} />
               </li>
             ))}
           </ul>

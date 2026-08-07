@@ -4,6 +4,7 @@ import { figureCategoryLabel } from "@/lib/categories";
 import { formatPopNumber } from "@/lib/format";
 import { searchHrefFor, type PublicCatalogFigure } from "@/lib/search";
 
+import { PriceChip } from "./market-signal";
 import { PixelSpiderArt } from "./pixel-spider-art";
 import { ShareButton } from "./share-button";
 
@@ -23,7 +24,18 @@ import { ShareButton } from "./share-button";
  * `<a>` is invalid HTML and behaves differently in every browser. The art and the name are
  * the link; SHARE sits under them.
  */
-export function WantedCard({ figure }: { figure: PublicCatalogFigure }) {
+export function WantedCard({
+  figure,
+  price,
+}: {
+  figure: PublicCatalogFigure;
+  /**
+   * `~$24`, and only when a figure page has already looked it up and the answer is still
+   * fresh (Phase 8). Absent on almost every card, which is deliberate: the wishlist never
+   * spends an eBay call, so there is nothing to load and nothing to spin.
+   */
+  price?: string;
+}) {
   const href = searchHrefFor(figure);
 
   return (
@@ -59,6 +71,12 @@ export function WantedCard({ figure }: { figure: PublicCatalogFigure }) {
           {figureCategoryLabel(figure.category)}
         </p>
       </Link>
+
+      {price ? (
+        <p className="mt-2">
+          <PriceChip label={price} />
+        </p>
+      ) : null}
 
       <div className="mt-auto pt-3">
         <ShareButton href={href} title={figure.name} />
