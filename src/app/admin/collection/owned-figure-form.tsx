@@ -6,12 +6,22 @@ import { OWNED_STATUSES } from "@/lib/collection";
 import type { ReferenceSearchResult } from "@/lib/collection-queries";
 
 import { fieldClass, labelClass, pixelButton } from "../ui";
-import { emptyOwnedFigureFormState, type OwnedFigureFormState } from "./actions";
+import { type OwnedFigureFormState } from "./actions";
 
 /**
  * The add/edit form. Client-side only because `useActionState` needs it — every rule it
  * appears to enforce is re-checked in the server action.
  */
+
+/**
+ * The initial `useActionState` value, defined **here** and not in `./actions`.
+ *
+ * A `"use server"` module may only export async functions. This constant lived there, and
+ * Next replaced it with `undefined` across the boundary rather than complaining — so the
+ * first render read `state.errors.length` off nothing and every edit screen answered 500.
+ * The type still comes from the action module, because that is where the shape belongs.
+ */
+const EMPTY_FORM_STATE: OwnedFigureFormState = { errors: [] };
 
 export interface OwnedFigureFormValues {
   status: string;
@@ -38,7 +48,7 @@ export function OwnedFigureForm({
   values: OwnedFigureFormValues;
   submitLabel: string;
 }) {
-  const [state, formAction, pending] = useActionState(action, emptyOwnedFigureFormState);
+  const [state, formAction, pending] = useActionState(action, EMPTY_FORM_STATE);
 
   return (
     <form action={formAction} className="flex flex-col gap-4">

@@ -55,19 +55,20 @@ sets the minimum tab width. `PETER PARKER` doubles as the counter caption
 ## Core components
 
 Built in Phase 4, all in `src/components/` and all **server components**. Everything on the
-public site is still server-rendered except one deliberate exception, `ShareButton` below —
-the native share sheet is not something a server can hand over:
+public site is still server-rendered except two deliberate exceptions — `ShareButton` below
+(the native share sheet is not something a server can hand over) and Phase 9's `BoxArtImage`
+(an `onError` swap is a browser event):
 
-| Component        | Props                                                   | Notes                                                                                                                                                      |
-| ---------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PixelFrame`     | `accent?`, `weight` (`sm`/`md`), `as?`                  | the gadget panel: border + hard `--ink-px` shadow. `sm` is the thin card frame on mobile, `md` the screen body; `accent` overrides the border colour       |
-| `PixelButton`    | `variant` (`primary`/`secondary`/`danger`/`quiet`)      | amber CTA / green / coral / outline; pressed = 2px down-right + shorter shadow; `min-h-11` (44px). `PixelButtonLink` is the same thing as a link           |
-| `LCDCounter`     | `value`, `label`, `size` (`sm`/`lg`), `scanlines`       | glowing tabular digits on `--lcd-bg`, 2px scanline overlay (`.lcd-scanlines`)                                                                              |
-| `ToothedBanner`  | `as?` (heading level), `tone` (`coral`/`green`)         | coral plaque, square teeth via `.pixel-teeth` (repeating gradient). Text is `--ink-px`, not cream. `tone="green"` is the Phase 6 success plaque            |
-| `TickerBar`      | `text`                                                  | CSS marquee on an LCD strip; the line is repeated 3× and the track travels ⅓ of its width, so the loop is seamless. Stops under `prefers-reduced-motion`   |
-| `PixelSpiderArt` | `slug`, `category`, `popNumber`, `size` (`card`/`hero`) | the box-art stand-in: a deterministic 16×16 inline-SVG spider, hue per category, pop number as cover text. `aria-hidden` — the card carries the same facts |
-| `FigureCard`     | `entry`, `isNew?`                                       | states: mine (default) · not-mine-anymore (dimmed + amber chip) · new sighting (amber star). Whole card links to `/figure/<slug>`                          |
-| `ShelfScreen`    | `entries`, `progress`, `filter`                         | the home screen as a pure function of fetched data, so `src/app/page.tsx` is only the DB shell                                                             |
+| Component        | Props                                                   | Notes                                                                                                                                                                                                 |
+| ---------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PixelFrame`     | `accent?`, `weight` (`sm`/`md`), `as?`                  | the gadget panel: border + hard `--ink-px` shadow. `sm` is the thin card frame on mobile, `md` the screen body; `accent` overrides the border colour                                                  |
+| `PixelButton`    | `variant` (`primary`/`secondary`/`danger`/`quiet`)      | amber CTA / green / coral / outline; pressed = 2px down-right + shorter shadow; `min-h-11` (44px). `PixelButtonLink` is the same thing as a link                                                      |
+| `LCDCounter`     | `value`, `label`, `size` (`sm`/`lg`), `scanlines`       | glowing tabular digits on `--lcd-bg`, 2px scanline overlay (`.lcd-scanlines`)                                                                                                                         |
+| `ToothedBanner`  | `as?` (heading level), `tone` (`coral`/`green`)         | coral plaque, square teeth via `.pixel-teeth` (repeating gradient). Text is `--ink-px`, not cream. `tone="green"` is the Phase 6 success plaque                                                       |
+| `TickerBar`      | `text`                                                  | CSS marquee on an LCD strip; the line is repeated 3× and the track travels ⅓ of its width, so the loop is seamless. Stops under `prefers-reduced-motion`                                              |
+| `PixelSpiderArt` | `slug`, `category`, `popNumber`, `size` (`card`/`hero`) | the drawn box art: a deterministic 16×16 inline-SVG spider, hue per category, pop number as cover text. `aria-hidden` — the card carries the same facts. Since Phase 9 it is reached through `BoxArt` |
+| `FigureCard`     | `entry`, `isNew?`                                       | states: mine (default) · not-mine-anymore (dimmed + amber chip) · new sighting (amber star). Whole card links to `/figure/<slug>`                                                                     |
+| `ShelfScreen`    | `entries`, `progress`, `filter`                         | the home screen as a pure function of fetched data, so `src/app/page.tsx` is only the DB shell                                                                                                        |
 
 Category hues (`PixelSpiderArt`, card frames, category chips): `peter` → coral ·
 `spider_verse` → green · `friends_foes` → amber · `other` → blue-frame.
@@ -79,7 +80,7 @@ Added in Phase 5 (search, wishlist, stats):
 | `VerdictStamp` | `verdict`       | the answer, stamped: green `OWNED` · coral `NOT OWNED YET` + amber `GIFT IDEA` chip · coral `NOT OWNED` + the lower-case footnote "was in the collection once". Rotated −2°, ink on both fills                                        |
 | `PublicNav`    | `pathname`      | SHELF · SEARCH · WISHLIST · STATS as a 4-column grid (never wraps at 375px), `min-h-11`, active item filled green. `pathname` is a prop — server components have no `usePathname()`                                                   |
 | `WantedCard`   | `figure`        | `FigureCard`'s twin for a catalog row nobody owns: coral frame, WANTED stamp top-right, links to `/search?q=<number>`. Not one big link — it holds the SHARE button                                                                   |
-| `ShareButton`  | `href`, `title` | the one client component on the public site: `navigator.share`, else clipboard + "LINK COPIED" for 2s. Resolves the relative href against the current origin                                                                          |
+| `ShareButton`  | `href`, `title` | one of the two client components on the public site: `navigator.share`, else clipboard + "LINK COPIED" for 2s. Resolves the relative href against the current origin                                                                  |
 | `WebRadar`     | `progress`      | the spider-web progress chart: one sector per bucket filled to `owned / total`, 4 rings, 12 threads. Geometry is pure and tested in `src/lib/radar.ts`; the SVG is `aria-hidden` and the legend beneath carries the labels and counts |
 
 `WebRadar` fills **linearly and honestly** — at 11/120 the peter wedge really is a sliver.
@@ -157,6 +158,53 @@ pixels**, so a marker is the same share of the panel at 375px and at 1280px.
 lives in `src/lib/spider-sprite.ts`. The card art, the map's 5×5 simplification and the PWA
 icons all read from it, because two hand-drawn copies of one animal drift the first time
 somebody straightens a leg.
+
+Added in Phase 9 (box art the owner uploads — ADR-011):
+
+| Component     | Props                                                                     | Notes                                                                                                                                                                                           |
+| ------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BoxArt`      | `slug`, `name`, `category`, `popNumber`, `imagePath?`, `size`, `sizes`    | **the one place a figure's picture is chosen**: uploaded art through `next/image`, else `PixelSpiderArt`. Every card, hero and admin summary goes through it, so the three sources cannot drift |
+| `BoxArtImage` | `src`, `alt`, `sizes`, `fallback`, `priority?`                            | the `onError` swap, and the only client component Phase 9 adds to the public site. `fallback` is a **rendered ReactNode**, so the placeholder stays server-side                                 |
+| `BoxArtPanel` | `referenceFigureId`, `slug`, `name`, `category`, `popNumber`, `imagePath` | the BOX ART panel on `/admin/collection/[id]/edit` — the upload screen                                                                                                                          |
+
+**`BoxArt` replaced eight direct `PixelSpiderArt` calls.** The placeholder component itself is
+unchanged and still the default; what moved is the decision. Alt text is always
+`"<NAME> box art"` (`boxArtAlt()`), never "image" — and the placeholder stays `aria-hidden`,
+because the card already carries the same facts as text.
+
+### The BOX ART panel (`/admin/collection/[id]/edit`, admin-only)
+
+Custom UI over the SDK's `useUploadThing` hook — deliberately **not** the stock
+`<UploadButton />`, which ships its own design system and would paint a Tailwind-generic
+button into the middle of the gadget. What the SDK provides is `startUpload` and a progress
+number; everything on screen is house furniture:
+
+| Piece         | What                                                                                                                         |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| the preview   | `BoxArt` at `hero` size — the current art, or the drawn spider                                                               |
+| the button    | amber `PixelButton` (`min-h-11`), labelled `UPLOAD BOX ART` or `REPLACE BOX ART`; opens a `sr-only` `accept="image/*"` input |
+| the readout   | an LCD strip: a ten-block bar (`▓▓▓▓▓░░░░░`, pixel font so the blocks align) over the caption                                |
+| the success   | green `ToothedBanner` — `BOX ART SECURED!`                                                                                   |
+| the failure   | the same LCD strip in coral, with the reason                                                                                 |
+| while working | the scanner's `.scanline` sweeps the preview — one shared class, already reduced-motion-aware                                |
+
+Captions, in order: `NORMALIZING…` → `UPLOADING… 0%` … `UPLOADING… 100%` →
+`BOX ART SECURED!`. The bar gives the first tenth to normalization rather than showing a
+separate spinner: on a phone, decoding and re-encoding a 12 MP photo is a real wait, and one
+bar that moves the whole time reads as one operation, which is what it is to the person
+watching. Progress granularity is `"fine"` (1%) and not the SDK's default `"coarse"` (10%) —
+against a ten-block bar, coarse jumps a whole block at a time and reads as stuck.
+
+Phase 9 wording lives in `BOX_ART_COPY` / `BOX_ART_ERRORS` (`src/lib/box-art.ts`), the same
+closed-table rule as `QUICK_ADD_COPY` and `SCAN_COPY`: `BOX ART` ·
+`ANY PHOTO — IT BECOMES 800×800 WEBP ON NAVY` · `UPLOAD BOX ART` · `REPLACE BOX ART` ·
+`NORMALIZING…` · `UPLOADING… n%` · `BOX ART SECURED!` ·
+`THAT IS NOT AN IMAGE — PICK A PNG OR A JPG` · `THAT FILE IS OVER 4MB — PICK A SMALLER ONE` ·
+`COULD NOT READ THAT IMAGE — TRY ANOTHER` · `UPLOAD FAILED — TRY AGAIN`.
+
+The panel sits **above** the sighting form and outside it, because box art belongs to the
+catalog row rather than to the sighting, and because uploading is immediate — there is no
+SAVE, and a field inside a form promises otherwise.
 
 ### App icons and the favicon (Phase 8)
 

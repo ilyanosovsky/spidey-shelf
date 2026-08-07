@@ -26,8 +26,6 @@ import { findDuplicateOwnedFigure } from "@/lib/collection-queries";
 
 export type OwnedFigureFormState = { errors: string[] };
 
-export const emptyOwnedFigureFormState: OwnedFigureFormState = { errors: [] };
-
 function writeValues(input: OwnedFigureInput) {
   return {
     referenceFigureId: input.referenceFigureId,

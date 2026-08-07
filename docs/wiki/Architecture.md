@@ -13,9 +13,9 @@ Vercel Hobby ($0) ────────────► Railway Postgres (~$3/
   jose-cookie admin session
         │
         ▼
-Object storage (R2 Free or Railway Bucket)
-  normalized 800×800 WebP box art, zero-egress
-  one-time seeded; no user uploads ever
+UploadThing (free 2 GB) ─────► si4zn51deh.ufs.sh/f/<key>
+  owner-uploaded box art, already 800×800 WebP when it arrives
+  one file per catalog figure; replaced files are deleted
 ```
 
 - **Frontend + admin** on Vercel Hobby: free CDN, image optimizer (5k transformations/mo,
@@ -24,8 +24,7 @@ Object storage (R2 Free or Railway Bucket)
   already-paid $5 Hobby credit. Running the whole app on Railway was measured against
   official rates and does NOT fit ($9–11/mo) — see [[Decisions]].
 - **Images**: hot-linking rejected (uniform-look requirement + Referer-blocked optimizer
-  fetches + link rot). One-time pipeline: fetch box art → sharp → 800×800 WebP → bucket.
-  Served exclusively through `next/image`.
+  fetches + link rot). Everything is served through `next/image` — see the image story below.
 
 ## Rendering strategy
 
@@ -46,15 +45,77 @@ Every page that reads the database declares `export const dynamic = "force-dynam
   wishlist, stats) live in `src/lib/catalog-queries.ts` under the same rules; the shelf
   reads stay in `src/lib/showcase-queries.ts`.
 
-## Placeholder box art
+## Box art: three sources, one component
 
-`image_path` is NULL everywhere while image rights are unresolved (ADR-008), so Phase 4
-draws the box art instead of leaving holes: `PixelSpiderArt` renders a 16×16 inline-SVG
-pixel spider tinted by the figure's category, with the pop number as cover text. It is
-deterministic — an FNV-1a hash of the slug picks three background specks and nothing else
-varies — so a figure looks identical on the grid, on its own page, and after a redeploy.
-When the rights question is settled, this component is what `next/image` replaces; no page
-layout depends on anything else about it.
+A figure's picture has had three answers on this project, and all three are live code:
+
+| #   | Source                            | Status                                      | What draws it                  |
+| --- | --------------------------------- | ------------------------------------------- | ------------------------------ |
+| 1   | **drawn pixel spider** (Phase 4)  | the default — `image_path` is NULL          | `PixelSpiderArt`               |
+| 2   | **owner upload** (Phase 9)        | **live** — ADR-011, nothing uploaded yet    | `next/image` via `BoxArtImage` |
+| 3   | **pops.today pipeline** (ADR-004) | unbuilt — permission email still unanswered | would write the same column    |
+
+`src/components/box-art.tsx` is where that choice is made, once, for the eight places a
+figure is drawn (`FigureCard`, `WantedCard`, `SearchResultCard`, the figure page hero, and
+Quick Add's hero / summary / result cards). Everything else just passes `imagePath` down.
+
+### 1 · The drawn spider is not a "missing image" state
+
+`PixelSpiderArt` renders a 16×16 inline-SVG spider tinted by the figure's category with the
+pop number as cover text, and it is deterministic — an FNV-1a hash of the slug picks three
+background specks and nothing else varies — so a figure looks identical on the grid, on its
+own page, and after a redeploy. It is also the **`onError` fallback**: a stored URL that
+stops resolving (a file deleted from the dashboard, a bad CDN minute) shows the drawn art
+again rather than a broken-image glyph.
+
+### 2 · The owner's upload (Phase 9)
+
+`/admin/collection/[id]/edit` → BOX ART panel → pick a file → the **browser** normalizes it
+→ UploadThing → `reference_figures.image_path`.
+
+```
+pick  ─► rejectPickedFile()      not an image / over 4MB → refused before a decode
+        ─► normalizeBoxArt()     decode → contain on #123b5c → 800×800 → WebP q0.8
+          ─► useUploadThing()    POST /api/uploadthing?actionType=upload
+            ─► .middleware()     ★ jose session re-verified; figure id resolved
+              ─► UT ingest       the file itself never touches our server
+                ─► .onUploadComplete()   image_path = ufsUrl, then delete the old key
+                  ─► router.refresh()
+```
+
+- **The normalization is `contain`, never `cover`.** A Funko box is portrait; covering an
+  800×800 square with it slices the head off every figure. The picture is scaled whole and
+  padded onto `--navy-panel`, which is the card's own background, so a tall box reads as
+  artwork rather than as a photo with bars. `containRect()` is pure and unit-tested.
+- **It happens in the browser** because there is no server to do it on: Vercel Hobby
+  functions are not where a 12 MP decode belongs, and UploadThing stores what it is handed.
+  The upload is ~150 KB instead of 4 MB, which matters on a shop's wifi.
+- **`.middleware()` is the real gate.** `src/proxy.ts` does not cover `/api/*` and a proxy
+  check would not count anyway (CVE-2025-29927), so the session is verified off the request's
+  own `Cookie` header inside the middleware — before a presigned URL exists. An anonymous
+  POST gets `403 {"message":"Not signed in as the owner."}`, never a redirect.
+- **The route handler adds a same-origin check** (Next.js data-security guidance for Route
+  Handlers; the SDK does not do it). It is **conditional**, and that condition is
+  load-bearing: UploadThing's own server posts the `uploadthing-hook: callback` request that
+  triggers `onUploadComplete`, from a machine, with no `Origin` header. A blanket check would
+  pass every browser test and silently stop `image_path` from ever being written in
+  production. The callback is authenticated by its HMAC signature instead.
+- **A replacement deletes what it replaces**, in that order: write the new URL, then delete
+  the old key. The other order leaves a figure pointing at a 404; this one leaves, at worst,
+  an orphan in a 2 GB bucket. `replacedFileKey()` also refuses to delete a key equal to the
+  new one — UploadThing deduplicates identical bytes to a single key, and deleting that would
+  delete the image just saved.
+- **The only client JavaScript this adds to the public site** is `BoxArtImage`, the `onError`
+  swap. The placeholder is handed to it as a rendered ReactNode, so `PixelSpiderArt`, the
+  sprite geometry and the category tokens all stay on the server; the 47 KB UploadThing chunk
+  is on `/admin/collection/[id]/edit` and nowhere else (checked against the built
+  client-reference manifests).
+
+### 3 · The pipeline that is still not built
+
+ADR-004's fetch-once-and-normalize job stays unbuilt and un-needed: if pops.today ever
+answers, it writes the same `image_path` column and the renderer does not change. That is
+what makes Phase 9 an interim rather than a fork in the road.
 
 ## Key mechanisms
 
@@ -350,6 +411,7 @@ figure's page with an error boundary because a price could not be loaded.
 | Source                                                | Role                                                 | Status                                     |
 | ----------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------ |
 | pops.today                                            | catalog + UPC + box art (27k pops, 418 spider pages) | permission email sent 2026-08-06, no reply |
+| UploadThing (free 2 GB)                               | where the owner's own box-art uploads live           | **live (phase 9)** — ADR-011, 0 files yet  |
 | Checklist sites (funkypriceguide 117, Pop Shop Guide) | plan-B catalog seed                                  | **seeded (plan B)** — 240 rows, ADR-008    |
 | UPCitemdb (free 100 req/day)                          | scan-time UPC fallback                               | **live (phase 7)** — 1 call/scan, no key   |
 | eBay Browse API (free 5k req/day)                     | live prices                                          | **built, gated off (phase 8)** — no keys   |
@@ -363,7 +425,8 @@ figure's page with an error boundary because a price could not be loaded.
 catalog with the strict RFC 4180 reader in `src/lib/csv.ts`, computes the `slug` in
 `src/lib/catalog.ts` and upserts `reference_figures` on that slug. The seeder never deletes
 and never touches `image_path`, `upc` or `is_vaulted`, so re-running it is safe once later
-phases start filling those in. No box art is fetched — see ADR-008.
+phases start filling those in — which is what makes a scanned barcode (ADR-010) and an
+owner-uploaded box art (ADR-011) survive a re-seed. No box art is fetched — see ADR-008.
 
 ## Collection seed and admin CRUD
 

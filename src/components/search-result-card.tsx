@@ -5,8 +5,8 @@ import { figureCategoryLabel } from "@/lib/categories";
 import { formatPopNumber } from "@/lib/format";
 import { searchVerdict, type CatalogSearchResult } from "@/lib/search";
 
+import { BoxArt } from "./box-art";
 import { PixelFrame } from "./pixel-frame";
-import { PixelSpiderArt } from "./pixel-spider-art";
 import { VerdictStamp } from "./verdict-stamp";
 
 /**
@@ -38,11 +38,15 @@ export function SearchResultCard({ result }: { result: CatalogSearchResult }) {
 
       <div className="mt-4 flex items-start gap-4">
         <div className="w-24 shrink-0 sm:w-28">
-          <PixelSpiderArt
+          <BoxArt
             slug={result.slug}
+            name={result.name}
             category={result.category}
             popNumber={result.popNumber}
+            imagePath={result.imagePath}
             size="card"
+            // The art is a thumbnail beside the stamp, never a grid cell.
+            sizes="112px"
           />
         </div>
 

@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/dal";
 
 import { CategoryChip, Panel, PixelLink } from "../../../ui";
 import { DeleteOwnedFigure } from "../../delete-owned-figure";
+import { BoxArtPanel } from "./box-art-panel";
 import { EditOwnedFigure } from "./edit-owned-figure";
 
 export const metadata: Metadata = {
@@ -41,6 +42,20 @@ export default async function EditOwnedFigurePage({ params }: { params: Promise<
         <div className="mt-5">
           <PixelLink href="/admin/collection">BACK TO THE VAULT</PixelLink>
         </div>
+      </Panel>
+
+      {/* Box art belongs to the CATALOG row, not to this sighting — so it sits in its own
+          panel above the form rather than as a field inside it. Uploading is immediate and
+          has no SAVE; putting it in the form would promise otherwise. */}
+      <Panel>
+        <BoxArtPanel
+          referenceFigureId={figure.referenceFigureId}
+          slug={figure.slug ?? ""}
+          name={figure.name ?? "This figure"}
+          category={figure.category}
+          popNumber={figure.popNumber}
+          imagePath={figure.imagePath}
+        />
       </Panel>
 
       <Panel>

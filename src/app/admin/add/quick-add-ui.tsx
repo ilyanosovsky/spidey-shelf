@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { type ReactNode } from "react";
 
-import { PixelSpiderArt } from "@/components/pixel-spider-art";
+import { BoxArt } from "@/components/box-art";
 import { figureCategoryLabel } from "@/lib/categories";
 import { formatPopNumber } from "@/lib/format";
 import {
@@ -130,11 +130,14 @@ export function FigureHero({ figure }: { figure: AdminCatalogFigure }) {
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
       <div className="w-40 shrink-0 sm:w-44">
-        <PixelSpiderArt
+        <BoxArt
           slug={figure.slug}
+          name={figure.name}
           category={figure.category}
           popNumber={figure.popNumber}
+          imagePath={figure.imagePath}
           size="hero"
+          sizes="176px"
         />
       </div>
       <div className="min-w-0 flex-1 text-center sm:text-left">
@@ -156,11 +159,14 @@ export function FigureSummary({ figure }: { figure: AdminCatalogFigure }) {
   return (
     <div className="flex items-start gap-3">
       <div className="w-20 shrink-0">
-        <PixelSpiderArt
+        <BoxArt
           slug={figure.slug}
+          name={figure.name}
           category={figure.category}
           popNumber={figure.popNumber}
+          imagePath={figure.imagePath}
           size="card"
+          sizes="80px"
         />
       </div>
       <div className="min-w-0 flex-1">
@@ -196,11 +202,14 @@ export function FigureCardLink({
     >
       {compact ? null : (
         <span className="block w-16 shrink-0">
-          <PixelSpiderArt
+          <BoxArt
             slug={figure.slug}
+            name={figure.name}
             category={figure.category}
             popNumber={figure.popNumber}
+            imagePath={figure.imagePath}
             size="card"
+            sizes="64px"
           />
         </span>
       )}

@@ -58,6 +58,7 @@ const adminCatalogColumns = {
   exclusivity: catalogWithOwnership.exclusivity,
   variantFlags: catalogWithOwnership.variantFlags,
   releaseYear: catalogWithOwnership.releaseYear,
+  imagePath: catalogWithOwnership.imagePath,
   needsReview: sql<boolean>`coalesce(${catalogWithOwnership.needsReview}, false)`,
   ownedCount: catalogWithOwnership.ownedCount,
 };
@@ -217,6 +218,8 @@ export interface OwnedFigureRow {
   productLine: string | null;
   exclusivity: string | null;
   slug: string | null;
+  /** The figure's box art, so the edit screen can show what it is about to replace. */
+  imagePath: string | null;
 }
 
 const ownedColumns = {
@@ -237,6 +240,7 @@ const ownedColumns = {
   productLine: referenceFigures.productLine,
   exclusivity: referenceFigures.exclusivity,
   slug: referenceFigures.slug,
+  imagePath: referenceFigures.imagePath,
 };
 
 /**

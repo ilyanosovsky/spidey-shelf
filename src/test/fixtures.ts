@@ -18,6 +18,7 @@ export function shelfEntry(overrides: Partial<PublicShelfEntry> = {}): PublicShe
     productLine: "Pop! Marvel",
     exclusivity: null,
     variantFlags: [],
+    imagePath: null,
     status: "mine",
     isPublic: true,
     acquiredAt: "2023-12-28",
@@ -93,6 +94,7 @@ export function catalogFigure(overrides: Partial<PublicCatalogFigure> = {}): Pub
     productLine: "Pop! Spider-Man (Gamerverse)",
     exclusivity: "GameStop",
     variantFlags: [],
+    imagePath: null,
     ...overrides,
   };
 }
@@ -172,6 +174,7 @@ export function adminFigure(overrides: Partial<AdminCatalogFigure> = {}): AdminC
     exclusivity: null,
     variantFlags: [],
     releaseYear: 2011,
+    imagePath: null,
     needsReview: false,
     ownedCount: 0,
     ...overrides,

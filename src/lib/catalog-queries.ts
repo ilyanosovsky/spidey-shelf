@@ -33,6 +33,7 @@ const publicCatalogColumns = {
   productLine: catalogWithOwnership.productLine,
   exclusivity: catalogWithOwnership.exclusivity,
   variantFlags: catalogWithOwnership.variantFlags,
+  imagePath: catalogWithOwnership.imagePath,
 };
 
 /** Notion's word for a figure that left the shelf. Bound as a parameter, never inlined. */
