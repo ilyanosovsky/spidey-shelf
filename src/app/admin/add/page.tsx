@@ -19,11 +19,13 @@ import {
   getVaultStats,
   listOwnedCopies,
   listRecentPlaces,
+  listUsedPlaces,
   listVariantCandidates,
   searchAdminCatalog,
 } from "@/lib/collection-queries";
 import { requireAdmin } from "@/lib/dal";
 import { formatPlace } from "@/lib/format";
+import { citySuggestionIndex } from "@/lib/places";
 import { parseSearchQuery, searchQueryValue } from "@/lib/search";
 import {
   findOwnedDuplicate,
@@ -40,16 +42,22 @@ import {
   type AdminCatalogFigure,
 } from "@/lib/quick-add";
 
-import { addDuplicateAction, createReferenceFigureAction, saveSightingAction } from "./actions";
+import {
+  addDuplicateAction,
+  createReferenceFigureAction,
+  fixReferenceFigureAction,
+  saveSightingAction,
+} from "./actions";
 import { ConfirmStep } from "./confirm-step";
 import { DetailsStep } from "./details-step";
 import { DoneStep } from "./done-step";
+import { FixStep } from "./fix-step";
 import { IdentifyStep } from "./identify-step";
 import { NewFigureStep } from "./new-figure-step";
 import { ScanFailedStep, ScanResultStep } from "./scan-result-step";
 
 /**
- * Quick Add — one route, six frames, `?step=` decides which.
+ * Quick Add — one route, seven frames, `?step=` decides which.
  *
  * Steps are URLs rather than client state, which buys three things at once: the back button
  * works, a half-finished add survives a phone locking itself, and every frame is a plain
@@ -59,7 +67,8 @@ import { ScanFailedStep, ScanResultStep } from "./scan-result-step";
  *
  * Phase 7 added `scan-result`, the one frame that decides rather than renders a query, and
  * `?upc=` — which every step from there on carries, because the write at the end of the flow
- * is what teaches the catalog the barcode.
+ * is what teaches the catalog the barcode. Phase 12 added `fix`, a detour off step 2 for the
+ * case the flow could not express at all: the right figure on a row with wrong data.
  *
  * `force-dynamic` is REQUIRED, not a preference: without it `next build` would prerender the
  * page and query Railway at build time, which CI (no DATABASE_URL) cannot do. See
@@ -103,15 +112,29 @@ export default async function QuickAddPage({
     );
   }
 
-  if (step === "confirm" || step === "details") {
+  if (step === "confirm" || step === "details" || step === "fix") {
     const figure = await requireFigure(params.ref);
 
+    if (step === "fix") {
+      return (
+        <FixStep
+          figure={figure}
+          query={query}
+          upc={upc}
+          via={parseScanOrigin(params.via) === "barcode" ? "barcode" : null}
+          errors={errors}
+          action={fixReferenceFigureAction}
+        />
+      );
+    }
+
     if (step === "details") {
-      const place = lastUsedPlace(await listRecentPlaces());
+      const [recent, used] = await Promise.all([listRecentPlaces(), listUsedPlaces()]);
       return (
         <DetailsStep
           figure={figure}
-          defaults={quickAddDefaults(today(), place)}
+          defaults={quickAddDefaults(today(), lastUsedPlace(recent))}
+          citiesByCountry={citySuggestionIndex(used)}
           upc={upc}
           errors={errors}
           action={saveSightingAction}

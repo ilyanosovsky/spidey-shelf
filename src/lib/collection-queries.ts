@@ -156,6 +156,26 @@ export async function getReferenceUpc(id: string): Promise<string | null> {
   return row?.upc ?? null;
 }
 
+/**
+ * The triage state of one catalog row — the FIX detour's read-before-write (Phase 12).
+ *
+ * Straight off `reference_figures` for the same reason `getReferenceUpc` is: this feeds a
+ * WRITE decision (the note is appended, not replaced), and "what is in the column right now"
+ * is a question only the column can answer. `null` means the row is gone, which is a stale
+ * tab rather than a crash.
+ */
+export async function getReferenceReviewNote(
+  id: string,
+): Promise<{ reviewNote: string | null } | null> {
+  const [row] = await db
+    .select({ reviewNote: referenceFigures.reviewNote })
+    .from(referenceFigures)
+    .where(eq(referenceFigures.id, id))
+    .limit(1);
+
+  return row ?? null;
+}
+
 /** Wide enough to hold every row that shares a number; `variantSiblings()` does the deciding. */
 const VARIANT_CANDIDATE_LIMIT = 40;
 
@@ -361,6 +381,28 @@ export function listRecentPlaces(limit: number = RECENT_PLACE_LIMIT): Promise<Si
     .from(ownedFigures)
     .orderBy(sql`${ownedFigures.acquiredAt} desc nulls last`, desc(ownedFigures.createdAt))
     .limit(limit);
+}
+
+/**
+ * Every distinct place the shelf already names — the owner's half of the CITY suggestions.
+ *
+ * DISTINCT in SQL rather than in TypeScript because this one is genuinely a set question and
+ * the answer is tiny (nine cities across nineteen rows); `citySuggestions()` then unions it
+ * with the map dictionary and dedupes on the map's own normaliser, so `Munich` and `München`
+ * cannot both end up in the list.
+ *
+ * Rows with no city are dropped here rather than downstream: a country on its own prefills
+ * the flag but is not a place anyone can be offered.
+ */
+export function listUsedPlaces(): Promise<SightingPlace[]> {
+  return db
+    .selectDistinct({
+      city: ownedFigures.acquiredCity,
+      country: ownedFigures.acquiredCountry,
+    })
+    .from(ownedFigures)
+    .where(and(isNotNull(ownedFigures.acquiredCity), isNotNull(ownedFigures.acquiredCountry)))
+    .orderBy(asc(ownedFigures.acquiredCountry), asc(ownedFigures.acquiredCity));
 }
 
 /** How many sightings are still waiting for their story. */

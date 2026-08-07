@@ -22,8 +22,30 @@ export const pixelButton = PIXEL_BUTTON_VARIANTS;
  * `outline-none` used to leave a focused field marked only by a border colour change from
  * ink to blue — two dark colours, on a dark field, at 2px. The amber ring from the buttons
  * goes on top of it, so "which field am I in" is answerable without staring.
+ *
+ * **`box-border` and `min-w-0` are load-bearing** (Phase 12). `w-full` alone measures the
+ * content box, so 2px of border and 12px of padding on each side pushed the green LCD box
+ * 28px past the `PixelFrame` around it — visible on the owner's phone as a field spilling out
+ * of its own panel. `min-w-0` is the flex-item half of the same bug: a field inside a
+ * `flex-col` (which every one of these is) refuses to shrink below its intrinsic minimum
+ * unless it is told it may.
  */
-export const fieldClass = `w-full rounded border-2 border-ink-px bg-lcd-bg px-3 py-3 text-base text-lcd-glow caret-lcd-glow focus-visible:border-blue-frame ${FOCUS_RING}`;
+export const fieldClass = `box-border w-full min-w-0 rounded border-2 border-ink-px bg-lcd-bg px-3 py-3 text-base text-lcd-glow caret-lcd-glow focus-visible:border-blue-frame ${FOCUS_RING}`;
+
+/**
+ * The DATE field — `fieldClass` plus the three declarations iOS Safari needs.
+ *
+ * `input[type="date"]` is the one control that ignores `width: 100%` on iOS: WebKit gives it
+ * an intrinsic width from the widest date its own formatter can render, and only
+ * `-webkit-appearance: none` lets a stated width win. `::-webkit-date-and-time-value` is the
+ * inner text node, which defaults to centred with its own margin — left-aligned and
+ * unmargined, it lines up with every other field on the form instead of floating.
+ *
+ * The native calendar sheet still opens on tap. That is the entire reason the field is a real
+ * `<input type="date">` and not three selects: on a phone it is one thumb, and on a desktop
+ * it is still a text box that accepts typing.
+ */
+export const dateFieldClass = `${fieldClass} appearance-none [&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-date-and-time-value]:m-0 [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-left`;
 
 export const labelClass = "font-pixel text-[10px] tracking-wider text-amber";
 

@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { OWNED_STATUSES } from "@/lib/collection";
 import type { ReferenceSearchResult } from "@/lib/collection-queries";
 
+import { SightingFields } from "../sighting-fields";
 import { fieldClass, labelClass, pixelButton } from "../ui";
 import { type OwnedFigureFormState } from "./actions";
 
@@ -41,11 +42,14 @@ export function OwnedFigureForm({
   action,
   reference,
   values,
+  citiesByCountry,
   submitLabel,
 }: {
   action: (state: OwnedFigureFormState, formData: FormData) => Promise<OwnedFigureFormState>;
   reference: Pick<ReferenceSearchResult, "id" | "popNumber" | "name" | "productLine">;
   values: OwnedFigureFormValues;
+  /** CITY suggestions per country code, built on the server (`citySuggestionIndex()`). */
+  citiesByCountry: Readonly<Record<string, readonly string[]>>;
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState(action, EMPTY_FORM_STATE);
@@ -64,49 +68,18 @@ export function OwnedFigureForm({
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-2">
-        <label htmlFor="acquiredAt" className={labelClass}>
-          DATE
-        </label>
-        <input
-          id="acquiredAt"
-          name="acquiredAt"
-          type="date"
-          required
-          defaultValue={values.acquiredAt}
-          className={fieldClass}
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label htmlFor="acquiredCity" className={labelClass}>
-          CITY
-        </label>
-        <input
-          id="acquiredCity"
-          name="acquiredCity"
-          type="text"
-          autoComplete="off"
-          defaultValue={values.acquiredCity}
-          className={fieldClass}
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label htmlFor="acquiredCountry" className={labelClass}>
-          COUNTRY (2 LETTERS)
-        </label>
-        <input
-          id="acquiredCountry"
-          name="acquiredCountry"
-          type="text"
-          maxLength={2}
-          autoComplete="off"
-          autoCapitalize="characters"
-          defaultValue={values.acquiredCountry}
-          className={`${fieldClass} uppercase`}
-        />
-      </div>
+      {/*
+       * DATE · COUNTRY · CITY, the same three fields Quick Add's details step renders — one
+       * component since Phase 12, because two hand-written copies had already drifted and
+       * the country box was a two-letter memory test in both of them.
+       */}
+      <SightingFields
+        date={values.acquiredAt}
+        city={values.acquiredCity}
+        country={values.acquiredCountry}
+        citiesByCountry={citiesByCountry}
+        disabled={pending}
+      />
 
       <div className="flex flex-col gap-2">
         <label htmlFor="status" className={labelClass}>

@@ -96,23 +96,42 @@ the only change to a shared component; everything else lives in `src/app/admin/a
 
 ### Quick Add screens (`/admin/add`, admin-only)
 
-Five frames on one route, `?step=` picking between them. All server components, no client
-JavaScript anywhere in the flow — the primary button of every frame sits last so it lands
-under the thumb at 375px, and every target clears 44px.
+Six frames on one route, `?step=` picking between them. Server components throughout, with
+exactly two client islands in the whole flow — the SCAN button on step 1 (Phase 7) and the
+DETAILS step's `SightingFields` (Phase 12, one `useState`) — so every frame still renders and
+submits before hydration. The primary button of every frame sits last so it lands under the
+thumb at 375px, and every target clears 44px.
 
-| Frame                       | One line                                                                                                                                                                |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `IdentifyStep` (step 1)     | autofocused GET box over the whole catalog, tappable result cards, the green `⌖ SCAN THE BOX` button (Phase 7), and `+ ADD AS NEW FIGURE` always last                   |
-| `NewFigureStep` (step 1b)   | name + optional number (prefilled from the search) + four category chips (`PETER PARKER` preselected) + optional product line → a `needs_review` catalog row            |
-| `ConfirmStep` (step 2)      | coral `IS IT THIS ONE?` banner, the figure as a `PixelSpiderArt` hero, `OR ONE OF THESE` variant cards, and either `CONFIRM — IT'S MINE` or the amber duplicate warning |
-| `DetailsStep` (step 3)      | date (today) · city + country (last used) · status chips · optional story, with `SAVE THE SIGHTING` first in the DOM and `SKIP FOR NOW` under it                        |
-| `DoneStep` (step 4)         | green `SIGHTING CONFIRMED!` plaque, the figure, two LCD counters with fresh counts, then `ADD ANOTHER` · `VIEW IT` · `WRITE THE STORY` (only when one is owed)          |
-| `QuickAddRail` (all frames) | `1 FIND · 2 CONFIRM · 3 DETAILS`, the active one filled amber; `new` sits on step 1 and `done` on step 3                                                                |
+| Frame                       | One line                                                                                                                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IdentifyStep` (step 1)     | autofocused GET box over the whole catalog, tappable result cards, the green `⌖ SCAN THE BOX` button (Phase 7), and `+ ADD AS NEW FIGURE` always last                                                   |
+| `NewFigureStep` (step 1b)   | name + optional number (prefilled from the search) + four category chips (`PETER PARKER` preselected) + optional product line → a `needs_review` catalog row                                            |
+| `ConfirmStep` (step 2)      | coral `IS IT THIS ONE?` banner, the figure as a `PixelSpiderArt` hero, `OR ONE OF THESE` variant cards, and either `CONFIRM — IT'S MINE` or the amber duplicate warning                                 |
+| `FixStep` (step 2, detour)  | NAME · POP NUMBER (optional) · four category chips · PRODUCT LINE (optional), all prefilled from the row, `SAVE THE CORRECTION` — the catalog's escape hatch for a checklist typo (Phase 12), see below |
+| `DetailsStep` (step 3)      | date (today) · city + country (last used) · status chips · optional story, with `SAVE THE SIGHTING` first in the DOM and `SKIP FOR NOW` under it                                                        |
+| `DoneStep` (step 4)         | green `SIGHTING CONFIRMED!` plaque, the figure, two LCD counters with fresh counts, then `ADD ANOTHER` · `VIEW IT` · `WRITE THE STORY` (only when one is owed)                                          |
+| `QuickAddRail` (all frames) | `1` / `FIND` · `2` / `CONFIRM` · `3` / `DETAILS`, index above label (Phase 12, see below), the active cell filled amber; `new` sits on step 1, `fix` on step 2, `done` on step 3                        |
 
 The shared furniture — the rail, the chips, the hero and summary cards, the error list — is
 `src/app/admin/add/quick-add-ui.tsx`. Chip tones: category cream · variant amber · coral
 `NEEDS REVIEW` · green `IN THE VAULT`. Those last two are admin-only by construction: the
 type that carries them (`AdminCatalogFigure`) never reaches a public component.
+
+**The step rail rule (Phase 12).** `QuickAddRail` is `grid-cols-[repeat(3,minmax(0,1fr))]` —
+three strictly equal columns at every width — and each cell holds the step NUMBER on its own
+line above a single-line LABEL (`1` / `FIND`, `2` / `CONFIRM`, `3` / `DETAILS`),
+`whitespace-nowrap` plus `overflow-hidden`, `px-1 sm:px-2`, the pixel font never leaving its
+10px floor. The bug it fixes: on the owner's 390px phone `3 DETAILS` on one line is nine
+monospace pixel characters ≈ 114px with padding and border against ~95px of column, so it
+wrapped, its cell grew, and the rail changed shape between steps. The `minmax(0, …)` is
+load-bearing — the default `auto` minimum lets a column refuse to shrink below its content,
+which is what made one chip wider than its neighbours. Shrinking the font instead was
+rejected: 10px is the floor Phase 8's accessibility pass established.
+
+**A new FIX frame** exists at `?step=fix` (name, pop number, category chips, product line),
+reached from a quiet underlined text link `WRONG DATA? FIX THIS FIGURE` under the confirm
+hero. Quiet, not a button, because CONFIRM is the answer nine times out of ten. The rail
+lights CONFIRM while on it.
 
 Added in Phase 7 (barcode scanner) — the first and only client JavaScript in Quick Add:
 
@@ -174,6 +193,32 @@ Added in Phase 9 (box art the owner uploads — ADR-011):
 unchanged and still the default; what moved is the decision. Alt text is always
 `"<NAME> box art"` (`boxArtAlt()`), never "image" — and the placeholder stays `aria-hidden`,
 because the card already carries the same facts as text.
+
+### Form fields
+
+`fieldClass` (`src/app/admin/ui.tsx`) gained `box-border` and `min-w-0` in Phase 12. Why:
+`w-full` alone measures the content box, so 2px of border and 12px of padding on each side
+pushed the green LCD box 28px past the `PixelFrame` around it — the owner's screenshot was a
+field spilling out of its own panel. `min-w-0` is the flex-item half of the same bug.
+
+`dateFieldClass` is `fieldClass` plus `appearance-none`,
+`[&::-webkit-calendar-picker-indicator]:ml-auto`, and `[&::-webkit-date-and-time-value]:m-0`
+`:min-w-0` `:text-left`. Why: `input[type="date"]` is the one control that ignores
+`width: 100%` on iOS Safari — WebKit gives it an intrinsic width from its own formatter and
+only `-webkit-appearance: none` lets a stated width win; `::-webkit-date-and-time-value` is
+the inner text node and defaults to centred with its own margin. It stays a real
+`<input type="date">` so the native calendar sheet opens on one thumb-tap.
+
+**The combobox fields** (`SightingFields`, `src/app/admin/sighting-fields.tsx`, shared by
+Quick Add's DETAILS step and `/admin/collection/[id]/edit`): a pixel `<input>` + a native
+`<datalist>`, not a `<select>`. COUNTRY offers all ~250 ISO 3166-1 entries as `Name (CODE)`
+(e.g. `Israel (IL)`) — the browser does the type-to-filter, free typing is still allowed, and
+the server resolves whatever comes back with `resolveCountryCode()` (accepts `Israel (IL)`,
+`IL`, `Israel`, and a short alias list like `USA`/`UK`), erroring with
+`PICK A COUNTRY FROM THE LIST` rather than storing garbage. CITY narrows to the chosen
+country: the cities already on the shelf there ∪ the SIGHTINGS MAP dictionary's canonical
+names for it; free text stays allowed because new cities are the point of a travel log. The
+only client state in the whole component is one `useState` holding the country box's value.
 
 ### The BOX ART panel (`/admin/collection/[id]/edit`, admin-only)
 
@@ -309,6 +354,28 @@ Still to build: Mascot (own sprite).
 
 The admin (`src/app/admin/ui.tsx`) re-exports `PixelButton`'s classes so the whole device
 has one button; its `Panel`, `LcdStat` and chips stay admin-sized on purpose.
+
+### The social card (Phase 12)
+
+`/opengraph-image` — 1200×630, static, no DB — is drawn from the SAME
+`src/lib/spider-sprite.ts` grid as the favicon and every box-art placeholder. Bright-blue
+dotted ground; a navy panel with the 8px blue frame and a hard 16px pixel shadow; inside it,
+stacked and centred, the coral spider with cream eyes at 15px per cell (240px), `SPIDEY SHELF`
+at 72px cream and `DOES HE ALREADY HAVE THIS ONE?` at 22px amber, both in Press Start 2P.
+
+**The stack is measured, not eyeballed.** Press Start 2P is monospace with a ~0.93em advance,
+so a line's width is arithmetic: the panel's 976px of inner width puts the 12-character title's
+ceiling near 87px and the 30-character tagline's near 35px. The first draft put the spider
+beside the words, left them 568px, and ran `SPIDEY SHE` off the right-hand edge — a mistake
+that is invisible until somebody pastes the link into a group chat.
+
+The font is bundled at `src/assets/fonts/PressStart2P-Regular.ttf` (SIL Open Font License
+1.1, text in `src/assets/fonts/OFL.txt`) because Satori needs the actual TTF bytes and a
+build that fetches fonts.gstatic.com fails the first time a network hiccups. Satori resolves
+no CSS variables, so the tokens are restated in hex — same values as `globals.css`. It also
+does not rasterise a **radial gradient** into a repeating background, which is how the body's
+dot grid is painted, so the card tiles a 48×48 inline-SVG data URI instead: same two colours,
+twice the pitch, because a 24px grid at poster scale reads as noise in a chat thumbnail.
 
 ## Voice & microcopy
 

@@ -500,6 +500,56 @@ of the collection uses, plus the snapshots. Three claims it has to be able to de
 Zero priced figures renders **nothing at all** — the same invisibility rule MARKET SIGNAL
 follows, for the same reason: `TOTAL VAULT VALUE: $0` is worse than silence.
 
+## SEO and social previews (Phase 12)
+
+Three new files, and their rendering modes as `next build` reports them:
+
+| Route              | File                          | Mode      |
+| ------------------ | ----------------------------- | --------- |
+| `/opengraph-image` | `src/app/opengraph-image.tsx` | ○ static  |
+| `/robots.txt`      | `src/app/robots.ts`           | ○ static  |
+| `/sitemap.xml`     | `src/app/sitemap.ts`          | ƒ dynamic |
+
+**The OG image is static on purpose**: no DB, no session, no `searchParams`, so Next
+prerenders it once and serves a file. A link pasted into a group chat is fetched by half a
+dozen crawlers at once and none of them should be able to wake up Railway. Reading the
+bundled TTF off disk is the only thing the module does at request time.
+
+**The sitemap must NOT be static**, and that is the same constraint every DB-reading page in
+this project lives under: `export const dynamic = "force-dynamic"`, or `next build` would
+evaluate it while collecting page data and query Railway from CI, where there is no
+`DATABASE_URL`. It also wraps its query in a `try` and degrades to the four static screens —
+a sitemap is the least important document the app serves and there is no version of "Railway
+is asleep" worth answering with a 500 to Googlebot.
+
+Which URLs are listed: `/`, `/search`, `/wishlist`, `/stats`, plus one entry per **public
+shelf** figure (`listPublicShelf()`), `lastModified` from the sighting's own `acquired_at`.
+The catalog's other ~228 rows are deliberately absent — `/figure/<slug>` 404s for anything
+nobody owns (Phase 4), and wishlist figures are reachable only through `/search?q=<number>`,
+which is a query string, not a document.
+
+**`robots.txt` disallows `/admin`, `/api` and `/login` — and that is not a security
+measure.** `robots.txt` is a request; the real gate is `requireAdmin()` inside every admin
+page, server action and route handler (ADR-005, CVE-2025-29927). What it buys is that a
+crawler does not spend its budget on a login form and that the console never surfaces in a
+search result. Every admin page also carries `robots: { index: false }` in its own metadata,
+which is the half a crawler actually obeys.
+
+**Metadata inheritance, and the trap in it.** The root layout declares `metadataBase`,
+`openGraph` (type website, siteName, locale en) and `twitter: summary_large_image` once, and
+App Router metadata merges down the tree **per key, not per object**. A page that says nothing
+therefore inherits the site's generic `og:title`, which would put `SPIDEY SHELF` on every
+shared figure link — so `/figure/[slug]` sets its own `openGraph` in `generateMetadata`. Doing
+that costs the inherited `images` along with it: Next attaches `opengraph-image.tsx` to the
+whole tree only while a segment leaves the key alone, and the loss is silent, because the page
+still renders and the tags are simply absent. The figure page names the card back from
+`OG_IMAGE` in `src/lib/site.ts`, the same constant the image route re-exports its `alt` and
+`size` from, so the declared 1200×630 is the 1200×630 Satori draws.
+
+`metadataBase` is what makes any of this fetchable. Without it Next emits `og:image` as a
+path, and a crawler has no page context to resolve one with — the preview then renders as
+grey text, which is exactly the bug this phase was opened for.
+
 ## External data sources
 
 | Source                                                | Role                                                 | Status                                     |

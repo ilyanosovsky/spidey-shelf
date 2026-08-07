@@ -11,11 +11,18 @@ import { decideUpcBackfill } from "@/lib/barcode/backfill";
 import { catalogSlug } from "@/lib/catalog";
 import {
   getAdminFigure,
+  getReferenceReviewNote,
   getReferenceUpc,
   listOwnedCopies,
   listTakenSlugs,
 } from "@/lib/collection-queries";
 import { requireAdmin } from "@/lib/dal";
+import {
+  appendReviewNote,
+  fixFigureFormFields,
+  manualCorrectionNote,
+  parseFixFigureForm,
+} from "@/lib/fix-figure";
 import {
   findOwnedDuplicate,
   newFigureFormFields,
@@ -138,6 +145,71 @@ export async function createReferenceFigureAction(formData: FormData): Promise<v
   // Straight to the details: a figure invented thirty seconds ago has no variants to confirm
   // and cannot already be in the vault.
   redirect(quickAddHref("details", { ref: created.id, upc }));
+}
+
+/**
+ * The FIX detour — the catalog row was wrong, and the owner is the one holding the box.
+ *
+ * Everything about this write is deliberately narrow. It sets the four facts printed on the
+ * front of a Pop box and **nothing else**: no slug (it is the natural key — a rename must not
+ * break `/figure/<slug>`, see `fix-figure.ts`), no UPC (the scanner owns that column and its
+ * clash rules), no `source` (where the row came from is history, not a field). What it does
+ * change beyond the four is the review state: a row the owner has just checked against the
+ * physical box is a row that has been reviewed, so `needs_review` goes to false and
+ * `review_note` gains a dated line saying who decided — appended, because the note may
+ * already hold a UPC clash that the triage pass still needs.
+ *
+ * It lands back on the confirm step of the same figure, carrying the barcode context it
+ * arrived with, so a correction costs the add nothing.
+ */
+export async function fixReferenceFigureAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+
+  const fields = fixFigureFormFields(formData);
+  const reference = parseUuidParam(fields.referenceFigureId);
+  const query = fields.q ?? "";
+  const upc = scannedUpcValue(fields.upc);
+  const via = fields.via === "barcode" ? "barcode" : null;
+
+  if (!reference) redirect(quickAddHref("identify", { err: quickAddErrorParam(["PICK_FIGURE"]) }));
+
+  const parsed = parseFixFigureForm(fields);
+  if (!parsed.ok) {
+    redirect(
+      quickAddHref("fix", {
+        ref: reference,
+        q: query,
+        upc,
+        via,
+        err: quickAddErrorParam(parsed.errors),
+      }),
+    );
+  }
+
+  // The id came out of a hidden input, so the row is re-read rather than trusted: a stale
+  // tab pointing at a deleted figure must update nothing at all.
+  const existing = await getReferenceReviewNote(reference);
+  if (!existing) redirect(quickAddHref("identify", { err: quickAddErrorParam(["FIGURE_GONE"]) }));
+
+  await db
+    .update(referenceFigures)
+    .set({
+      name: parsed.value.name,
+      popNumber: parsed.value.popNumber,
+      category: parsed.value.category,
+      productLine: parsed.value.productLine,
+      countsTowardTotal: parsed.value.countsTowardTotal,
+      needsReview: false,
+      reviewNote: appendReviewNote(
+        existing.reviewNote,
+        manualCorrectionNote(new Date().toISOString().slice(0, 10)),
+      ),
+      updatedAt: new Date(),
+    })
+    .where(eq(referenceFigures.id, reference));
+
+  revalidateVault();
+  redirect(quickAddHref("confirm", { ref: reference, q: query, upc, via }));
 }
 
 /**

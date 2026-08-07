@@ -1,5 +1,6 @@
 import { normalizeScannedCode } from "./barcode/upc";
 import { FIGURE_CATEGORIES, type FigureCategory } from "./categories";
+import { resolveCountryCode } from "./countries";
 import { isRealIsoDate, looksLikeIsoDate, OWNED_STATUSES, type OwnedStatus } from "./collection";
 import { parseReferenceSearchQuery } from "./collection-form";
 import { formatSightingDate } from "./format";
@@ -28,12 +29,16 @@ import { formatSightingDate } from "./format";
  * `scan-result` (Phase 7) is a landing frame, not a screen he navigates to: the overlay
  * submits the decoded barcode into it, and it either forwards to `confirm` (the catalog
  * knew the code), renders the candidates it found, or hands over to `new`.
+ *
+ * `fix` (Phase 12) is a detour off `confirm` rather than a step of its own: "yes, that is the
+ * figure, but the number on it is wrong". It edits the catalog row and comes straight back.
  */
 export const QUICK_ADD_STEPS = [
   "identify",
   "scan-result",
   "new",
   "confirm",
+  "fix",
   "details",
   "done",
 ] as const;
@@ -110,7 +115,7 @@ export const QUICK_ADD_ERRORS = {
   BAD_STATUS: "STATUS MUST BE MINE OR NOT MINE ANYMORE",
   BAD_DATE: "DATE MUST BE YYYY-MM-DD",
   UNREAL_DATE: "THAT DATE DOES NOT EXIST",
-  BAD_COUNTRY: "COUNTRY MUST BE A 2-LETTER CODE",
+  BAD_COUNTRY: "PICK A COUNTRY FROM THE LIST",
   NOTHING_TO_BUMP: "NOTHING TO BUMP — THAT FIGURE IS NOT IN THE VAULT",
 } as const;
 
@@ -517,9 +522,13 @@ export function parseQuickAddDetailsForm(
   if (!looksLikeIsoDate(acquiredAt)) errors.push("BAD_DATE");
   else if (!isRealIsoDate(acquiredAt)) errors.push("UNREAL_DATE");
 
+  // The field is a combobox over the whole ISO 3166 list, so what arrives here may be
+  // `Israel (IL)`, `IL`, `Israel` or `USA` — `resolveCountryCode` accepts all four and
+  // answers `null` for anything it cannot place. An empty box stays empty (the place is
+  // optional); an unresolvable one is an error, never a silently stored two letters.
   const rawCountry = trimmedOrNull(fields.acquiredCountry);
-  const acquiredCountry = rawCountry?.toUpperCase() ?? null;
-  if (acquiredCountry !== null && !/^[A-Z]{2}$/.test(acquiredCountry)) errors.push("BAD_COUNTRY");
+  const acquiredCountry = rawCountry === null ? null : resolveCountryCode(rawCountry);
+  if (rawCountry !== null && acquiredCountry === null) errors.push("BAD_COUNTRY");
 
   if (errors.length > 0) return { ok: false, errors };
 
@@ -624,6 +633,9 @@ export const QUICK_ADD_COPY = {
   confirmPrimary: "CONFIRM — IT'S MINE",
   confirmVariants: "OR ONE OF THESE",
   duplicatePrimary: "ADD DUPLICATE (+1)",
+  fixLink: "WRONG DATA? FIX THIS FIGURE",
+  fixTitle: "FIX THE CATALOG",
+  fixSubmit: "SAVE THE CORRECTION",
   detailsTitle: "WHERE AND WHEN?",
   detailsSubmit: "SAVE THE SIGHTING",
   detailsSkip: "SKIP FOR NOW",

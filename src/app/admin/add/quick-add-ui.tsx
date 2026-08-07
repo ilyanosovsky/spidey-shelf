@@ -25,42 +25,65 @@ import { Panel } from "../ui";
  * button on step 1, and it deliberately lives outside this file.
  */
 
-/** The three frames the owner actually walks. `new` and `done` are detours off the rail. */
-const RAIL: readonly { step: QuickAddStep; label: string }[] = [
-  { step: "identify", label: "1 FIND" },
-  { step: "confirm", label: "2 CONFIRM" },
-  { step: "details", label: "3 DETAILS" },
+/** The three frames the owner actually walks. `new`, `fix` and `done` are detours off it. */
+const RAIL: readonly { step: QuickAddStep; index: string; label: string }[] = [
+  { step: "identify", index: "1", label: "FIND" },
+  { step: "confirm", index: "2", label: "CONFIRM" },
+  { step: "details", index: "3", label: "DETAILS" },
 ];
 
 /**
  * Which rail entry lights up for a step — `new` belongs to step 1, `done` to step 3.
- * `scan-result` belongs to step 1 too: a scan IS the find, done with a camera.
+ * `scan-result` belongs to step 1 too: a scan IS the find, done with a camera; `fix`
+ * belongs to step 2, because correcting the row is part of answering "is it this one?".
  */
 const RAIL_POSITION: Record<QuickAddStep, QuickAddStep> = {
   identify: "identify",
   "scan-result": "identify",
   new: "identify",
   confirm: "confirm",
+  fix: "confirm",
   details: "details",
   done: "details",
 };
 
+/**
+ * The step rail: three cells, always the same three sizes, on every screen.
+ *
+ * **The number sits above the word, and that is the whole fix** (Phase 12, from a real
+ * 390px phone). `1 FIND` · `2 CONFIRM` · `3 DETAILS` on one line each means the widest cell
+ * needs nine monospace pixel characters — about 114px with its padding and border — against
+ * roughly 95px of column at 375px. So DETAILS wrapped, its cell grew, and the rail reflowed
+ * between steps: three chips that changed shape as the owner walked them.
+ *
+ * Splitting the number off drops the widest label to `CONFIRM`, which fits, and every cell
+ * then holds exactly two single-line rows — identical height by construction rather than by
+ * luck. `repeat(3, minmax(0, 1fr))` is spelled out because the `0` minimum is the load-
+ * bearing part: with the default `auto` minimum a column refuses to shrink below its own
+ * content, which is what made one chip twice the width of its neighbours in the first place.
+ * `whitespace-nowrap` + `overflow-hidden` are the belt and braces — below 320px the text
+ * clips, and clipping is a far better failure than a rail that changes shape.
+ *
+ * The pixel font stays at 10px throughout: that is the design system's floor (Phase 8's
+ * accessibility pass), and shrinking a label to fit is exactly the trade that pass undid.
+ */
 export function QuickAddRail({ step }: { step: QuickAddStep }) {
   const active = RAIL_POSITION[step];
 
   return (
-    <ol aria-label="Quick add progress" className="grid grid-cols-3 gap-2">
+    <ol aria-label="Quick add progress" className="grid grid-cols-[repeat(3,minmax(0,1fr))] gap-2">
       {RAIL.map((entry) => {
         const isActive = entry.step === active;
         return (
           <li
             key={entry.step}
             aria-current={isActive ? "step" : undefined}
-            className={`font-pixel rounded border-2 px-2 py-2 text-center text-[10px] leading-relaxed tracking-wider ${
+            className={`font-pixel flex min-w-0 flex-col items-center justify-center gap-1.5 overflow-hidden rounded border-2 px-1 py-2 text-center text-[10px] whitespace-nowrap sm:px-2 ${
               isActive ? "border-amber bg-amber text-ink-px" : "border-blue-frame text-cream/60"
             }`}
           >
-            {entry.label}
+            <span className="block leading-none tracking-wider">{entry.index}</span>
+            <span className="block leading-none">{entry.label}</span>
           </li>
         );
       })}
@@ -76,7 +99,7 @@ export function QuickAddScreen({ children }: { children: ReactNode }) {
       tabIndex={-1}
       className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 p-4 sm:p-6"
     >
-      {/* One nav for all six frames — the public site is one tap away mid-add too. */}
+      {/* One nav for all seven frames — the public site is one tap away mid-add too. */}
       <PublicNav pathname="/admin/add" isAdmin />
       {children}
     </main>

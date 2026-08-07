@@ -119,11 +119,23 @@ describe("parseOwnedFigureForm", () => {
     });
   });
 
-  it("rejects a country code that is not two letters", () => {
+  it("rejects a country nobody can place, and accepts the four spellings that resolve", () => {
+    expect(parseOwnedFigureForm({ ...validFields, acquiredCountry: "Narnia" })).toMatchObject({
+      ok: false,
+      errors: ["PICK A COUNTRY FROM THE LIST"],
+    });
+    // `ISR` used to fail on length alone; it fails now because it names no country.
     expect(parseOwnedFigureForm({ ...validFields, acquiredCountry: "ISR" })).toMatchObject({
       ok: false,
-      errors: ["COUNTRY MUST BE A 2-LETTER CODE"],
+      errors: ["PICK A COUNTRY FROM THE LIST"],
     });
+
+    for (const spelling of ["il", "IL", "Israel", "Israel (IL)"]) {
+      expect(parseOwnedFigureForm({ ...validFields, acquiredCountry: spelling })).toMatchObject({
+        ok: true,
+        value: { acquiredCountry: "IL" },
+      });
+    }
   });
 
   it("reports every broken field at once", () => {

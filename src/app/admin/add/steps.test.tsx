@@ -6,6 +6,7 @@ import { adminFigure, VARIANT_FIXTURE } from "@/test/fixtures";
 import { ConfirmStep } from "./confirm-step";
 import { DetailsStep } from "./details-step";
 import { DoneStep } from "./done-step";
+import { FixStep } from "./fix-step";
 import { IdentifyStep } from "./identify-step";
 import { NewFigureStep } from "./new-figure-step";
 import { ScanFailedStep, ScanResultStep } from "./scan-result-step";
@@ -291,6 +292,44 @@ describe("ConfirmStep", () => {
 
     expect(container.querySelector('form input[name="upc"]')).toHaveValue(UPC);
   });
+
+  it("offers the escape hatch for a row whose data is wrong (Phase 12)", () => {
+    render(
+      <ConfirmStep
+        figure={adminFigure()}
+        siblings={[]}
+        duplicate={null}
+        query="3"
+        errors={[]}
+        duplicateAction={noop}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "WRONG DATA? FIX THIS FIGURE" })).toHaveAttribute(
+      "href",
+      `/admin/add?step=fix&ref=${REF}&q=3`,
+    );
+  });
+
+  it("carries the barcode into the fix detour, so a correction costs no backfill", () => {
+    render(
+      <ConfirmStep
+        figure={adminFigure()}
+        siblings={[]}
+        duplicate={null}
+        query="3"
+        upc={UPC}
+        matchedByBarcode
+        errors={[]}
+        duplicateAction={noop}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "WRONG DATA? FIX THIS FIGURE" })).toHaveAttribute(
+      "href",
+      `/admin/add?step=fix&ref=${REF}&q=3&upc=${UPC}&via=barcode`,
+    );
+  });
 });
 
 describe("DetailsStep", () => {
@@ -301,17 +340,36 @@ describe("DetailsStep", () => {
     status: "mine" as const,
   };
 
+  const cities = { RU: ["Moscow"], GE: ["Batumi", "Tbilisi"] };
+
   it("comes pre-filled with today and the last place", () => {
-    render(<DetailsStep figure={adminFigure()} defaults={defaults} errors={[]} action={noop} />);
+    render(
+      <DetailsStep
+        figure={adminFigure()}
+        defaults={defaults}
+        citiesByCountry={cities}
+        errors={[]}
+        action={noop}
+      />,
+    );
 
     expect(screen.getByLabelText("DATE")).toHaveValue("2026-08-06");
     expect(screen.getByLabelText("CITY")).toHaveValue("Moscow");
-    expect(screen.getByLabelText("COUNTRY")).toHaveValue("RU");
+    // The stored code is shown as the datalist's own format, which round-trips back to `RU`.
+    expect(screen.getByLabelText("COUNTRY")).toHaveValue("Russia (RU)");
     expect(screen.getByLabelText("MINE")).toBeChecked();
   });
 
   it("offers both submits, with SAVE first so a stray Enter never skips the story", () => {
-    render(<DetailsStep figure={adminFigure()} defaults={defaults} errors={[]} action={noop} />);
+    render(
+      <DetailsStep
+        figure={adminFigure()}
+        defaults={defaults}
+        citiesByCountry={cities}
+        errors={[]}
+        action={noop}
+      />,
+    );
 
     const submits = screen.getAllByRole("button");
     expect(submits[0]).toHaveTextContent("SAVE THE SIGHTING");
@@ -322,7 +380,13 @@ describe("DetailsStep", () => {
 
   it("keeps the chosen figure out of the visible form", () => {
     const { container } = render(
-      <DetailsStep figure={adminFigure()} defaults={defaults} errors={[]} action={noop} />,
+      <DetailsStep
+        figure={adminFigure()}
+        defaults={defaults}
+        citiesByCountry={cities}
+        errors={[]}
+        action={noop}
+      />,
     );
 
     expect(container.querySelector('input[name="referenceFigureId"]')).toHaveValue(REF);
@@ -335,6 +399,7 @@ describe("DetailsStep", () => {
       <DetailsStep
         figure={adminFigure()}
         defaults={defaults}
+        citiesByCountry={cities}
         upc={UPC}
         errors={[]}
         action={noop}
@@ -501,5 +566,150 @@ describe("DoneStep", () => {
     );
 
     expect(screen.queryByRole("link", { name: "VIEW IT" })).not.toBeInTheDocument();
+  });
+});
+
+describe("the step rail", () => {
+  /** The three cells, in DOM order, off whichever frame rendered them. */
+  function railCells(container: HTMLElement): HTMLElement[] {
+    const rail = container.querySelector('ol[aria-label="Quick add progress"]');
+    return [...(rail?.querySelectorAll("li") ?? [])] as HTMLElement[];
+  }
+
+  it("is three strictly equal columns — `auto` is what let one chip outgrow the others", () => {
+    const { container } = render(
+      <ConfirmStep
+        figure={adminFigure()}
+        siblings={[]}
+        duplicate={null}
+        query=""
+        errors={[]}
+        duplicateAction={noop}
+      />,
+    );
+
+    const rail = container.querySelector('ol[aria-label="Quick add progress"]');
+    expect(rail?.className).toContain("grid-cols-[repeat(3,minmax(0,1fr))]");
+    expect(railCells(container)).toHaveLength(3);
+  });
+
+  it("keeps every label on one line, at the 10px pixel-font floor", () => {
+    const { container } = render(
+      <ConfirmStep
+        figure={adminFigure()}
+        siblings={[]}
+        duplicate={null}
+        query=""
+        errors={[]}
+        duplicateAction={noop}
+      />,
+    );
+
+    for (const cell of railCells(container)) {
+      expect(cell.className).toContain("whitespace-nowrap");
+      expect(cell.className).toContain("overflow-hidden");
+      expect(cell.className).toContain("min-w-0");
+      expect(cell.className).toContain("text-[10px]");
+      // The number is its own row above the word — that is what makes DETAILS fit at 375px.
+      expect(cell.querySelectorAll("span")).toHaveLength(2);
+    }
+  });
+
+  it("reads 1 FIND · 2 CONFIRM · 3 DETAILS, and lights exactly one", () => {
+    const { container } = render(
+      <ConfirmStep
+        figure={adminFigure()}
+        siblings={[]}
+        duplicate={null}
+        query=""
+        errors={[]}
+        duplicateAction={noop}
+      />,
+    );
+
+    expect(railCells(container).map((cell) => cell.textContent)).toEqual([
+      "1FIND",
+      "2CONFIRM",
+      "3DETAILS",
+    ]);
+    const current = railCells(container).filter((cell) => cell.getAttribute("aria-current"));
+    expect(current).toHaveLength(1);
+    expect(current[0].textContent).toBe("2CONFIRM");
+  });
+
+  it("does not move when the FIX detour is open — a correction is part of confirming", () => {
+    const { container } = render(
+      <FixStep figure={adminFigure()} query="" errors={[]} action={noop} />,
+    );
+
+    const current = railCells(container).filter((cell) => cell.getAttribute("aria-current"));
+    expect(current[0].textContent).toBe("2CONFIRM");
+  });
+});
+
+describe("FixStep", () => {
+  it("comes prefilled with the row it is about to correct", () => {
+    render(<FixStep figure={adminFigure()} query="3" errors={[]} action={noop} />);
+
+    expect(screen.getByLabelText("NAME")).toHaveValue(adminFigure().name);
+    expect(screen.getByLabelText("POP NUMBER (OPTIONAL)")).toHaveValue("3");
+    expect(screen.getByLabelText("PRODUCT LINE (OPTIONAL)")).toHaveValue(
+      adminFigure().productLine ?? "",
+    );
+    expect(screen.getByLabelText("PETER PARKER")).toBeChecked();
+  });
+
+  it("leaves the number blank rather than writing `null` into the box", () => {
+    render(
+      <FixStep figure={adminFigure({ popNumber: null })} query="" errors={[]} action={noop} />,
+    );
+
+    expect(screen.getByLabelText("POP NUMBER (OPTIONAL)")).toHaveValue("");
+  });
+
+  it("carries the whole context back to the same confirm screen", () => {
+    const { container } = render(
+      <FixStep
+        figure={adminFigure()}
+        query="3"
+        upc={UPC}
+        via="barcode"
+        errors={[]}
+        action={noop}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "BACK" })).toHaveAttribute(
+      "href",
+      `/admin/add?step=confirm&ref=${REF}&q=3&upc=${UPC}&via=barcode`,
+    );
+    expect(container.querySelector('form input[name="referenceFigureId"]')).toHaveValue(REF);
+    expect(container.querySelector('form input[name="upc"]')).toHaveValue(UPC);
+    expect(container.querySelector('form input[name="via"]')).toHaveValue("barcode");
+    expect(container.querySelector('form input[name="q"]')).toHaveValue("3");
+  });
+
+  it("offers no barcode field when the add did not start at the camera", () => {
+    const { container } = render(
+      <FixStep figure={adminFigure()} query="" errors={[]} action={noop} />,
+    );
+
+    expect(container.querySelector('form input[name="upc"]')).toBeNull();
+    expect(container.querySelector('form input[name="via"]')).toBeNull();
+  });
+
+  it("never offers to edit the slug — it is the natural key", () => {
+    const { container } = render(
+      <FixStep figure={adminFigure()} query="" errors={[]} action={noop} />,
+    );
+
+    expect(container.querySelector('[name="slug"]')).toBeNull();
+    expect(container.querySelector('[name="needsReview"]')).toBeNull();
+  });
+
+  it("spells out what the last submit refused", () => {
+    render(<FixStep figure={adminFigure()} query="" errors={["BAD_NUMBER"]} action={noop} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("POP NUMBER MUST BE DIGITS ONLY");
   });
 });

@@ -38,6 +38,9 @@ const h = vi.hoisted(() => {
       throw new RedirectError(url);
     }),
     getAdminFigure: vi.fn(),
+    getReferenceReviewNote: vi.fn(async (): Promise<{ reviewNote: string | null } | null> => ({
+      reviewNote: null,
+    })),
     getReferenceUpc: vi.fn(async (): Promise<string | null> => null),
     listOwnedCopies: vi.fn(),
     listTakenSlugs: vi.fn(async () => new Set<string>()),
@@ -66,12 +69,18 @@ vi.mock("@/db", () => ({ db: h.db }));
 vi.mock("@/lib/dal", () => ({ requireAdmin: h.requireAdmin }));
 vi.mock("@/lib/collection-queries", () => ({
   getAdminFigure: h.getAdminFigure,
+  getReferenceReviewNote: h.getReferenceReviewNote,
   getReferenceUpc: h.getReferenceUpc,
   listOwnedCopies: h.listOwnedCopies,
   listTakenSlugs: h.listTakenSlugs,
 }));
 
-import { addDuplicateAction, createReferenceFigureAction, saveSightingAction } from "./actions";
+import {
+  addDuplicateAction,
+  createReferenceFigureAction,
+  fixReferenceFigureAction,
+  saveSightingAction,
+} from "./actions";
 
 const REF = "11111111-1111-4111-8111-111111111111";
 
@@ -104,6 +113,7 @@ beforeEach(() => {
   h.requireAdmin.mockResolvedValue({ sub: "admin", role: "admin" as const });
   h.listTakenSlugs.mockResolvedValue(new Set<string>());
   h.getReferenceUpc.mockResolvedValue(null);
+  h.getReferenceReviewNote.mockResolvedValue({ reviewNote: null });
 });
 
 describe("createReferenceFigureAction", () => {
@@ -358,5 +368,120 @@ describe("addDuplicateAction", () => {
     // Two writes: the quantity bump, then the catalog enrichment.
     expect(h.updates).toHaveLength(2);
     expect(h.updates[1].values).toMatchObject({ upc: EAN_13 });
+  });
+});
+
+describe("fixReferenceFigureAction", () => {
+  const valid = {
+    referenceFigureId: REF,
+    name: "Spider-Man (White Spider)",
+    popNumber: "1450",
+    category: "peter",
+    productLine: "Pop! Marvel",
+    q: "1450",
+  };
+
+  it("corrects the four facts on the box and comes back to the confirm step", async () => {
+    const url = await redirectedTo(fixReferenceFigureAction(form(valid)));
+
+    expect(h.requireAdmin).toHaveBeenCalledOnce();
+    expect(h.inserts).toHaveLength(0);
+    expect(h.updates).toHaveLength(1);
+    expect(h.updates[0].values).toMatchObject({
+      name: "Spider-Man (White Spider)",
+      popNumber: 1450,
+      category: "peter",
+      productLine: "Pop! Marvel",
+      countsTowardTotal: true,
+      needsReview: false,
+    });
+    expect(h.updates[0].values.updatedAt).toBeInstanceOf(Date);
+    expect(url).toBe(`/admin/add?step=confirm&ref=${REF}&q=1450`);
+  });
+
+  it("never touches the slug — it is the natural key, and share links point at it", () => {
+    // Asserted on the SET clause rather than on a redirect, because the failure mode is
+    // silent: a regenerated slug 404s every URL a friend was ever sent.
+    return redirectedTo(fixReferenceFigureAction(form({ ...valid, name: "Something Else" }))).then(
+      () => {
+        expect(h.updates[0].values.slug).toBeUndefined();
+        expect(h.updates[0].values.upc).toBeUndefined();
+        expect(h.updates[0].values.source).toBeUndefined();
+      },
+    );
+  });
+
+  it("clears the review flag and says who decided, dated", async () => {
+    await redirectedTo(fixReferenceFigureAction(form(valid)));
+
+    const today = new Date().toISOString().slice(0, 10);
+    expect(h.updates[0].values.needsReview).toBe(false);
+    expect(String(h.updates[0].values.reviewNote)).toBe(`manually corrected by owner ${today}`);
+  });
+
+  it("appends to a note that is already there — a UPC clash must survive the fix", async () => {
+    h.getReferenceReviewNote.mockResolvedValue({
+      reviewNote: "upc clash: kept 0889698636759, scanned 0889698636766",
+    });
+
+    await redirectedTo(fixReferenceFigureAction(form(valid)));
+
+    const note = String(h.updates[0].values.reviewNote);
+    expect(note).toContain("0889698636766");
+    expect(note).toContain("manually corrected by owner");
+  });
+
+  it("moves the denominator when the category moves (ADR-009)", async () => {
+    await redirectedTo(fixReferenceFigureAction(form({ ...valid, category: "spider_verse" })));
+
+    expect(h.updates[0].values).toMatchObject({
+      category: "spider_verse",
+      countsTowardTotal: false,
+    });
+  });
+
+  it("carries the barcode context through the correction and back", async () => {
+    const url = await redirectedTo(
+      fixReferenceFigureAction(form({ ...valid, upc: UPC_A, via: "barcode" })),
+    );
+
+    expect(url).toBe(`/admin/add?step=confirm&ref=${REF}&q=1450&upc=${EAN_13}&via=barcode`);
+  });
+
+  it("bounces an invalid form back to the fix step, context intact", async () => {
+    const url = await redirectedTo(
+      fixReferenceFigureAction(form({ ...valid, name: "  ", popNumber: "x", upc: UPC_A })),
+    );
+
+    expect(h.updates).toHaveLength(0);
+    expect(url).toBe(
+      `/admin/add?step=fix&ref=${REF}&q=1450&upc=${EAN_13}&err=NAME_REQUIRED%2CBAD_NUMBER`,
+    );
+  });
+
+  it("refuses a row that has left the catalog rather than updating nothing quietly", async () => {
+    h.getReferenceReviewNote.mockResolvedValue(null);
+
+    const url = await redirectedTo(fixReferenceFigureAction(form(valid)));
+
+    expect(h.updates).toHaveLength(0);
+    expect(url).toBe("/admin/add?err=FIGURE_GONE");
+  });
+
+  it("never lets a non-uuid reach Postgres", async () => {
+    const url = await redirectedTo(
+      fixReferenceFigureAction(form({ ...valid, referenceFigureId: "' or 1=1" })),
+    );
+
+    expect(h.getReferenceReviewNote).not.toHaveBeenCalled();
+    expect(h.updates).toHaveLength(0);
+    expect(url).toBe("/admin/add?err=PICK_FIGURE");
+  });
+
+  it("checks the session BEFORE it writes anything", async () => {
+    h.requireAdmin.mockRejectedValue(new Error("NEXT_REDIRECT /login"));
+
+    await expect(fixReferenceFigureAction(form(valid))).rejects.toThrow("NEXT_REDIRECT");
+    expect(h.updates).toHaveLength(0);
   });
 });

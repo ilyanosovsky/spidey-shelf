@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   CITY_COORDINATES,
+  CITY_DISPLAY_NAMES,
   cityKey,
+  dictionaryCitiesFor,
+  dictionaryCountries,
   graticule,
   GRATICULE_STEP,
   hairline,
@@ -202,5 +205,47 @@ describe("marker and line sizing", () => {
     const bounds = { x: 0, y: 0, width: 200, height: 100 };
     expect((markerCell(bounds) * 5) / bounds.width).toBeLessThan(0.06);
     expect(hairline(bounds)).toBeLessThan(markerCell(bounds));
+  });
+});
+
+describe("the display names (Phase 12) — what the CITY combobox offers", () => {
+  it("names only cities the dictionary can actually pin", () => {
+    for (const key of Object.keys(CITY_DISPLAY_NAMES)) {
+      expect(CITY_COORDINATES[key]).toBeDefined();
+    }
+  });
+
+  it("round-trips: every suggestion resolves back to its own coordinate", () => {
+    for (const [key, name] of Object.entries(CITY_DISPLAY_NAMES)) {
+      const [country] = key.split(":");
+      expect(lookupCity(country, name)).toEqual(CITY_COORDINATES[key]);
+    }
+  });
+
+  it("offers one entry per real place, never an alias — that is the point of the subset", () => {
+    // `de:munchen`, `us:la`, `es:mallorca` and `es:palma` exist so the shelf's own spellings
+    // resolve; suggesting them back would invite a second spelling of the same city.
+    const pins = Object.keys(CITY_DISPLAY_NAMES).map((key) => {
+      const point = CITY_COORDINATES[key];
+      return `${point.lat},${point.lng}`;
+    });
+    expect(new Set(pins).size).toBe(pins.length);
+  });
+
+  it("answers one country at a time, alphabetically", () => {
+    expect(dictionaryCitiesFor("GE")).toEqual(["Batumi", "Tbilisi"]);
+    expect(dictionaryCitiesFor("ge")).toEqual(["Batumi", "Tbilisi"]);
+    expect(dictionaryCitiesFor("IL")).toEqual(["Haifa"]);
+  });
+
+  it("has nothing to say about a country nobody has been to, and does not throw", () => {
+    expect(dictionaryCitiesFor("PT")).toEqual([]);
+    expect(dictionaryCitiesFor("")).toEqual([]);
+    expect(dictionaryCitiesFor(null)).toEqual([]);
+    expect(dictionaryCitiesFor("Georgia")).toEqual([]);
+  });
+
+  it("lists its countries uppercase, which is how the column stores them", () => {
+    expect(dictionaryCountries()).toEqual(["DE", "ES", "GE", "IL", "NL", "RU", "US"]);
   });
 });
