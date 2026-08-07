@@ -1,6 +1,13 @@
 import { FIGURE_CATEGORIES, type FigureCategory } from "./categories";
 import { countryFlagEmoji } from "./format";
-import { cityKey, lookupCity, projectEquirectangular, type MapPoint } from "./geo";
+import {
+  cityKey,
+  lookupCity,
+  projectEquirectangular,
+  storedCoordinate,
+  type Coordinate,
+  type MapPoint,
+} from "./geo";
 import { filterShelf, type PublicShelfEntry } from "./showcase";
 
 /**
@@ -9,10 +16,15 @@ import { filterShelf, type PublicShelfEntry } from "./showcase";
  * Pure over `PublicShelfEntry[]`, like the rest of `src/lib/*`: the component turns these
  * rows into `<rect>`s and text and decides nothing. Two outputs, because a travel map has two
  * honest answers:
- *   · **markers** — the cities the dictionary knows, one pin per city with a count;
- *   · **uncharted** — the figures whose place it does not, listed by name underneath rather
+ *   · **markers** — the cities it can place, one pin per city with a count;
+ *   · **uncharted** — the figures whose place it cannot, listed by name underneath rather
  *     than dropped. A map that silently loses a figure is worse than a map that admits it
  *     does not know where Milan is.
+ *
+ * Since Phase 13 a place can be placed two ways — the row's own `acquired_lat` /
+ * `acquired_lng`, geocoded once when it was written (ADR-012), or the hand-written dictionary
+ * in `src/lib/geo.ts`. Reading is still pure and still free: this file never fetches
+ * anything, and neither does the page that calls it.
  */
 
 /** One pin: a city, everything found there, and where it lands on the map. */
@@ -73,29 +85,65 @@ function unchartedPlace(entry: PublicShelfEntry): string {
 }
 
 /**
+ * Where one row is: **its own columns first, the dictionary second.**
+ *
+ * That order and not the other one. The columns are the specific answer — this sighting, in
+ * this city, resolved when it was saved — and the dictionary is the general one. In practice
+ * the two never disagree, because the founding nine cities are NULL in the database on
+ * purpose (no backfill: their coordinates were checked by hand and a gazetteer would only
+ * move them by metres). The fallback is what keeps every row written before Phase 13, and
+ * every row the geocoder could not place, exactly as placeable as it was.
+ */
+export function sightingCoordinate(entry: PublicShelfEntry): Coordinate | null {
+  return (
+    storedCoordinate(entry.acquiredLat, entry.acquiredLng) ??
+    lookupCity(entry.acquiredCountry, entry.acquiredCity)
+  );
+}
+
+/**
  * Group the public shelf by city, busiest first.
  *
  * Ties break on the city name so the legend's order never wobbles between two requests —
  * the same rule the flags row already follows. Figures that left the shelf are still pinned:
  * the map is a record of where things were found, and giving a Pop away does not un-visit
  * Amsterdam.
+ *
+ * **A city is placed if ANY of its rows can be placed**, which is why the coordinates are
+ * collected in a pass of their own before anything is grouped. Two sources per row means a
+ * city can be half-filled — four Kuala Lumpur figures added before Phase 13 and one after,
+ * or one row whose lookup timed out beside one whose lookup worked — and a marker per
+ * coordinate-bearing row would split one city into a pin and an UNCHARTED line. The cluster
+ * is keyed by `(country, city)` exactly as before and takes the first coordinate any of its
+ * rows knows, in shelf order.
  */
 export function buildSightingsMap(entries: readonly PublicShelfEntry[]): SightingsMapData {
+  const visible = filterShelf(entries);
+
+  const coordinates = new Map<string, MapPoint>();
+  for (const entry of visible) {
+    const key = cityKey(entry.acquiredCountry, entry.acquiredCity);
+    if (key === "" || coordinates.has(key)) continue;
+
+    const coordinate = sightingCoordinate(entry);
+    if (coordinate !== null) coordinates.set(key, projectEquirectangular(coordinate));
+  }
+
   const grouped = new Map<string, { entries: PublicShelfEntry[]; point: MapPoint }>();
   const uncharted: UnchartedSighting[] = [];
 
-  for (const entry of filterShelf(entries)) {
+  for (const entry of visible) {
     const key = cityKey(entry.acquiredCountry, entry.acquiredCity);
-    const coordinate = lookupCity(entry.acquiredCountry, entry.acquiredCity);
+    const point = key === "" ? undefined : coordinates.get(key);
 
-    if (key === "" || coordinate === null) {
+    if (point === undefined) {
       uncharted.push({ slug: entry.slug, name: entry.name, place: unchartedPlace(entry) });
       continue;
     }
 
     const bucket = grouped.get(key);
     if (bucket) bucket.entries.push(entry);
-    else grouped.set(key, { entries: [entry], point: projectEquirectangular(coordinate) });
+    else grouped.set(key, { entries: [entry], point });
   }
 
   const markers = [...grouped.entries()]

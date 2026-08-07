@@ -17,6 +17,7 @@ import {
   listTakenSlugs,
 } from "@/lib/collection-queries";
 import { requireAdmin } from "@/lib/dal";
+import { resolveAcquiredCoordinate } from "@/lib/geocode";
 import {
   appendReviewNote,
   fixFigureFormFields,
@@ -218,6 +219,11 @@ export async function fixReferenceFigureAction(formData: FormData): Promise<void
  * `is_public` is not on the form and not set here: the column defaults to true, and a Quick
  * Add is the owner putting a figure on the shelf. Staging a figure privately stays possible
  * from the edit screen, where there is room to think about it.
+ *
+ * Since Phase 13 it also writes WHERE the city is, not only its name (ADR-012). The lookup
+ * happens here, on the write path, and at most once per city the collection has never seen —
+ * the dictionary and the rows already on the shelf answer first, and a failure is two NULLs
+ * rather than a lost sighting. This is one of the only two places in the app that geocodes.
  */
 export async function saveSightingAction(formData: FormData): Promise<void> {
   await requireAdmin();
@@ -241,6 +247,15 @@ export async function saveSightingAction(formData: FormData): Promise<void> {
   const figure = await getAdminFigure(parsed.value.referenceFigureId);
   if (!figure) redirect(quickAddHref("identify", { err: quickAddErrorParam(["FIGURE_GONE"]) }));
 
+  // Before the insert rather than after it, because these are columns OF the row — unlike the
+  // barcode backfill below, which is a write to a different table. It is safe there: the call
+  // resolves to two NULLs on any failure and never rejects, so the sighting is saved either
+  // way and the pin is the only thing that can be missing.
+  const coordinates = await resolveAcquiredCoordinate(
+    parsed.value.acquiredCountry,
+    parsed.value.acquiredCity,
+  );
+
   const [created] = await db
     .insert(ownedFigures)
     .values({
@@ -249,6 +264,7 @@ export async function saveSightingAction(formData: FormData): Promise<void> {
       acquiredAt: parsed.value.acquiredAt,
       acquiredCity: parsed.value.acquiredCity,
       acquiredCountry: parsed.value.acquiredCountry,
+      ...coordinates,
       story: parsed.value.story,
       needsStory: parsed.value.needsStory,
     })

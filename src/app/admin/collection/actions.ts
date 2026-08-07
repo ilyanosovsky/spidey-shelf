@@ -14,6 +14,7 @@ import {
   type OwnedFigureInput,
 } from "@/lib/collection-form";
 import { findDuplicateOwnedFigure } from "@/lib/collection-queries";
+import { resolveAcquiredCoordinate } from "@/lib/geocode";
 
 /**
  * Every action here starts with `requireAdmin()`.
@@ -60,9 +61,19 @@ export async function updateOwnedFigureAction(
     return { errors: ["ANOTHER ENTRY ALREADY HOLDS THAT FIGURE ON THAT DAY"] };
   }
 
+  // Phase 13 (ADR-012): the place is re-resolved on every save, which is what makes this
+  // screen the retry for a sighting the geocoder could not place the first time — and what
+  // keeps the pin honest when the city itself is what was corrected. It costs a request only
+  // for a city that is in neither the dictionary nor any row already on the shelf, so
+  // re-saving a Haifa figure reaches nothing but the database.
+  const coordinates = await resolveAcquiredCoordinate(
+    parsed.value.acquiredCountry,
+    parsed.value.acquiredCity,
+  );
+
   const updated = await db
     .update(ownedFigures)
-    .set({ ...writeValues(parsed.value), updatedAt: new Date() })
+    .set({ ...writeValues(parsed.value), ...coordinates, updatedAt: new Date() })
     .where(eq(ownedFigures.id, id))
     .returning({ id: ownedFigures.id });
 

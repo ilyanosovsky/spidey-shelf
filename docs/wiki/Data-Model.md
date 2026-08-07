@@ -152,7 +152,7 @@ What the seeder does with each column:
 | is_favorite                      | bool default false    |                                                     |
 | acquired_at                      | date                  |                                                     |
 | acquired_city / acquired_country | text / char(2)        | travel log                                          |
-| acquired_lat / acquired_lng      | numeric               | future travel map                                   |
+| acquired_lat / acquired_lng      | numeric               | where that city is — geocoded at write time         |
 | acquisition_type                 | text                  | bought / gift / trade                               |
 | gifted_by                        | text                  |                                                     |
 | story_title / story              | text                  | markdown                                            |
@@ -164,25 +164,36 @@ comparisons). The FK is `ON DELETE SET NULL` — deleting a catalog row must nev
 memory of owning the figure. Indexes: `reference_figure_id` (the view's join) and
 `created_at` (the "new sightings" ribbon).
 
-### `acquired_lat` / `acquired_lng` are unused, and stay that way for now (Phase 8)
+### `acquired_lat` / `acquired_lng` are in use since Phase 13 — and mostly still NULL
 
-Both columns are **NULL on all 19 rows** and the SIGHTINGS MAP does not read them. The map's
-coordinates come from `src/lib/geo.ts`, a dictionary of the nine cities this collection came
-from, keyed `<alpha-2>:<normalised city>`. The dictionary wins on three counts:
+Dormant from Phase 1 to Phase 12, written since **Phase 13** (ADR-012). Both halves are
+`numeric`, so Drizzle hands them back as **strings** — `storedCoordinate()` in `src/lib/geo.ts`
+is the one place that parses them, and it refuses a blank, a half-pair or an out-of-range value
+rather than pinning a figure to null island.
 
-- **Retroactive.** It places every row that already exists, with no backfill pass over
-  hand-typed city names from a Notion export.
-- **No migration, no new failure mode.** A city it has never heard of becomes an
-  `UNCHARTED SECTORS` line under the map — the figure is named and its place printed — rather
-  than a NULL that has to be handled at three call sites.
-- **The admin flow is unchanged.** Quick Add stays "date, city, country, done". Filling these
-  columns honestly would mean a geocoder between the owner and a saved sighting, on a phone, in
-  a shop — the exact latency Phase 6 was designed to remove.
+**They are filled in when a row is written, never when a page is read.** The two server actions
+that save a sighting (Quick Add's details step, the collection edit form) resolve the city the
+owner typed and store the answer; `/stats` then reads a column. A visitor's request never
+reaches OpenStreetMap. The resolution order — dictionary → a row already on the shelf with the
+same country+city → **one** Nominatim request — means the cost of the whole feature is one
+lookup per city this collection has never been to. See [[Decisions]] ADR-012 for the usage
+policy that shapes it and [[Architecture]] for the map itself.
 
-The columns are kept rather than dropped: if per-figure precision ever matters (two shops in one
-city, or a figure bought at an airport rather than in the city it is filed under), they become
-the source and the dictionary becomes the fallback. Nothing is lost by waiting, and a column
-nobody writes costs 8 bytes of NULL bitmap. See [[Architecture]] for the map itself.
+**Most rows are still NULL, deliberately.** The nine founding cities — Haifa, Munich, Tbilisi,
+Batumi, Moscow, LA, Madrid, Mallorca, Amsterdam — are placed by the hand-checked dictionary in
+`src/lib/geo.ts` and were **not** backfilled: a human verified them, including two calls a
+gazetteer gets wrong (`US:la` is Los Angeles, `ES:mallorca` is pinned to Palma), and the map
+reads `column ?? dictionary` so nothing is gained by rewriting them. Live today: **1 of 20 rows
+has coordinates** — Kuala Lumpur, MY at `3.15, 101.69`, filled by
+`npm run geo:backfill` on 2026-08-07.
+
+**Two decimals, by design** (~1 km): a marker is five pixels on a crop 8,000 km wide, and this
+is a public site where the geocoder is being asked about a place the owner physically stood in.
+Rounding applies to geocoded answers; a dictionary value is already a city centre and is copied
+as written, which is why the founding cities would store three decimals if they ever did.
+
+A row whose lookup failed keeps two NULLs and stays as placeable as it was before — the
+sighting is never lost over a pin, and saving the edit form retries.
 
 No photo table: box art lives on the catalog row (`image_path` — see above). A
 personal-photos table can be added later without breaking anything.
@@ -208,8 +219,10 @@ retyped. Run it **after** `npm run db:seed`.
 - The seeder **never deletes**: rows added through the admin are untouched, and dropping a
   line from the CSV leaves the figure (and its story) in the database.
 
-Live today: 19 rows — 15 `mine`, 4 `not_mine_anymore`, 0 without a catalog row; by category
-11 `peter`, 1 `spider_verse`, 2 `friends_foes`, 5 `other`.
+What the seed run produces: 19 rows — 15 `mine`, 4 `not_mine_anymore`, 0 without a catalog row;
+by category 11 `peter`, 1 `spider_verse`, 2 `friends_foes`, 5 `other`. **Live today the shelf
+holds 20**: the twentieth was added through Quick Add from a phone in Kuala Lumpur on
+2026-08-07, and it is the row that motivated Phase 13 (ADR-012).
 
 ## price_snapshots — what eBay said, last time anyone looked (Phase 8)
 

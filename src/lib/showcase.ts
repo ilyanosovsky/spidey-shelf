@@ -52,6 +52,15 @@ export interface PublicShelfEntry {
   acquiredCity: string | null;
   /** ISO 3166-1 alpha-2. */
   acquiredCountry: string | null;
+  /**
+   * Where that city is, geocoded once at write time (Phase 13, ADR-012). `numeric` columns,
+   * so Drizzle hands them back as strings. NULL on every row seeded before Phase 13 and on
+   * any row the geocoder could not place — the SIGHTINGS MAP falls back to the dictionary in
+   * `src/lib/geo.ts` and then to UNCHARTED SECTORS. Public by design: a rounded city centre
+   * is the whole point of a travel map, and nothing finer is ever stored.
+   */
+  acquiredLat: string | null;
+  acquiredLng: string | null;
   story: string | null;
 }
 

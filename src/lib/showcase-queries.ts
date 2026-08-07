@@ -41,6 +41,11 @@ const shelfColumns = {
   acquiredAt: ownedFigures.acquiredAt,
   acquiredCity: ownedFigures.acquiredCity,
   acquiredCountry: ownedFigures.acquiredCountry,
+  // In use since Phase 13, dormant since Phase 1: where the city IS, written once when the
+  // row was saved (ADR-012). Selected here so the SIGHTINGS MAP can pin a city the
+  // dictionary in `src/lib/geo.ts` has never heard of — no page ever geocodes.
+  acquiredLat: ownedFigures.acquiredLat,
+  acquiredLng: ownedFigures.acquiredLng,
   story: ownedFigures.story,
 };
 

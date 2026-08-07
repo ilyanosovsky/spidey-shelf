@@ -26,6 +26,11 @@ export function shelfEntry(overrides: Partial<PublicShelfEntry> = {}): PublicShe
     acquiredAt: "2023-12-28",
     acquiredCity: "Haifa",
     acquiredCountry: "IL",
+    // NULL like the real rows: the nine founding cities are placed by the dictionary in
+    // `src/lib/geo.ts` and were deliberately not backfilled (Phase 13, ADR-012). A fixture
+    // that carried coordinates here would test a shelf this project does not have.
+    acquiredLat: null,
+    acquiredLng: null,
     story: null,
     ...overrides,
   };

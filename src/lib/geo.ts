@@ -1,13 +1,15 @@
 /**
  * Where the collection was found, in coordinates — the geography behind the SIGHTINGS MAP.
  *
- * **The coordinates are a dictionary in code, not columns in the database.** `owned_figures`
- * has had `acquired_lat` / `acquired_lng` since Phase 1 and they are still NULL on all 19
- * rows, because filling them would mean either a backfill pass over the owner's Notion export
- * or a geocoder in the admin flow — a second thing to type on a phone, for data that is
- * already implied by "Haifa, IL". A table of nine cities is retroactive by construction: it
- * fixes every existing row at once, it needs no migration, and a city that is not in it is a
- * line of copy rather than a crash. See docs/wiki/Data-Model.md.
+ * **Two sources since Phase 13, and the dictionary is still the first one.** The nine cities
+ * below were written by hand in Phase 8 and place every row the owner's Notion export ever
+ * produced, retroactively and with no migration. What Phase 13 added is the other half: a
+ * city the dictionary has never heard of is geocoded **once, at write time** (ADR-012) and
+ * the answer is stored in `owned_figures.acquired_lat` / `acquired_lng`, which had been
+ * dormant since Phase 1. The map reads `DB ?? dictionary`, so the founding nine keep their
+ * hand-checked coordinates and Kuala Lumpur stops being an UNCHARTED SECTORS line.
+ *
+ * Nothing on a page ever geocodes. See `src/lib/geocode/` and docs/wiki/Data-Model.md.
  *
  * Everything here is pure and unit-tested. The projection is equirectangular, chosen because
  * it is *linear* in longitude and latitude: the map's coordinate space IS degree space
@@ -155,6 +157,45 @@ export function lookupCity(
 ): Coordinate | null {
   const key = cityKey(country, city);
   return key === "" ? null : (CITY_COORDINATES[key] ?? null);
+}
+
+/** Is this a point that exists on Earth? Both halves finite, and inside the graticule. */
+export function isCoordinate(value: { lat: number; lng: number }): boolean {
+  return (
+    Number.isFinite(value.lat) &&
+    Number.isFinite(value.lng) &&
+    value.lat >= -90 &&
+    value.lat <= 90 &&
+    value.lng >= -180 &&
+    value.lng <= 180
+  );
+}
+
+/**
+ * `acquired_lat` / `acquired_lng` as a point, or `null` — the DB half of the map's input.
+ *
+ * The columns are Postgres `numeric`, which Drizzle hands back as **strings** (a float would
+ * silently round the arbitrary-precision type), so this is where the text becomes a number.
+ * Numbers are accepted too, because a caller that already parsed should not have to stringify
+ * to ask this question.
+ *
+ * Anything that is not a real point on Earth answers `null` rather than throwing: a row is
+ * either placeable or it is an UNCHARTED SECTORS line, and there is no third outcome the map
+ * knows how to draw. `0,0` is deliberately allowed — it is in the Gulf of Guinea, it is a
+ * real coordinate, and treating it as "empty" is the classic null-island bug in reverse.
+ */
+export function storedCoordinate(
+  lat: string | number | null | undefined,
+  lng: string | number | null | undefined,
+): Coordinate | null {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) return null;
+
+  // `Number("")` is 0 and `Number(" ")` is 0, so a blank column would become null island.
+  const parse = (value: string | number): number =>
+    typeof value === "number" ? value : value.trim() === "" ? Number.NaN : Number(value);
+
+  const point = { lat: parse(lat), lng: parse(lng) };
+  return isCoordinate(point) ? point : null;
 }
 
 /**
