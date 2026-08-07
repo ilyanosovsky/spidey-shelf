@@ -1,0 +1,11 @@
+-- Phase 7 (scanner): a reason next to the flag.
+--
+-- `needs_review` says a row needs a human; it never said why. The scanner is the first
+-- thing that flags rows automatically — a barcode arriving on a figure that already
+-- carries a DIFFERENT one is never overwritten (exclusives share UPCs, ADR-006), it is
+-- flagged — and a machine-set flag with no note is a flag nobody can act on.
+--
+-- Additive and idempotent. `catalog_with_ownership` names its columns explicitly and does
+-- not select this one, so the view is untouched: this column is admin-only by
+-- construction, exactly like `needs_review`, `source` and `source_url`.
+ALTER TABLE "reference_figures" ADD COLUMN IF NOT EXISTS "review_note" text;

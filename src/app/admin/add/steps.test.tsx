@@ -8,19 +8,25 @@ import { DetailsStep } from "./details-step";
 import { DoneStep } from "./done-step";
 import { IdentifyStep } from "./identify-step";
 import { NewFigureStep } from "./new-figure-step";
+import { ScanFailedStep, ScanResultStep } from "./scan-result-step";
 
 /**
- * Smoke tests for the five Quick Add frames.
+ * Smoke tests for the Quick Add frames.
  *
  * Every step is a pure function of its props (its server action arrives as one), so each
  * screen renders here with no session, no request and no database — the same arrangement the
- * public screens use.
+ * public screens use. Phase 7 added one exception and it is deliberately narrow: step 1's
+ * SCAN button is a client component, and the camera behind it is not imported until it is
+ * pressed.
  */
 
 const noop = async () => {};
 
 const REF = adminFigure().id;
 const SIBLINGS = VARIANT_FIXTURE.filter((figure) => figure.id !== REF && figure.popNumber === 3);
+
+/** The Phase 7 research fixture: a real Funko Spider-Man barcode, in its stored form. */
+const UPC = "0889698636759";
 
 describe("IdentifyStep", () => {
   it("offers an empty box and the escape hatch before anything is typed", () => {
@@ -34,12 +40,13 @@ describe("IdentifyStep", () => {
     );
   });
 
-  it("parks the Phase 7 scanner as a visibly dead button", () => {
+  it("offers the camera as a live button now that Phase 7 has landed", () => {
     render(<IdentifyStep query="" parsed={{ kind: "empty" }} results={[]} errors={[]} />);
 
-    const scan = screen.getByRole("button", { name: /SCAN — SOON/ });
-    expect(scan).toBeDisabled();
-    expect(scan).toHaveAttribute("aria-disabled", "true");
+    const scan = screen.getByRole("button", { name: /SCAN THE BOX/ });
+    expect(scan).toBeEnabled();
+    // The overlay is behind a dynamic import: nothing camera-shaped is in the first paint.
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("makes each result a tap straight into the confirm step", () => {
@@ -121,6 +128,35 @@ describe("NewFigureStep", () => {
     expect(screen.getByLabelText("FRIENDS & FOES")).toBeInTheDocument();
     expect(screen.getByLabelText("OTHER")).toBeInTheDocument();
   });
+
+  it("takes a scan's name AND number, which no single ?q= could carry", () => {
+    render(
+      <NewFigureStep
+        query="Spider-Man Last Stand"
+        prefill={{ name: "Spider-Man Last Stand", popNumber: "1450" }}
+        upc={UPC}
+        notice="BARCODE NOT FOUND. TYPE THE NUMBER?"
+        errors={[]}
+        action={noop}
+      />,
+    );
+
+    expect(screen.getByLabelText("NAME")).toHaveValue("Spider-Man Last Stand");
+    expect(screen.getByLabelText("POP NUMBER (OPTIONAL)")).toHaveValue("1450");
+    expect(screen.getByRole("status")).toHaveTextContent("BARCODE NOT FOUND");
+  });
+
+  it("carries the scanned barcode into the insert", () => {
+    const { container } = render(<NewFigureStep query="" upc={UPC} errors={[]} action={noop} />);
+
+    expect(container.querySelector('input[name="upc"]')).toHaveValue(UPC);
+  });
+
+  it("has no barcode field at all when the figure was typed", () => {
+    const { container } = render(<NewFigureStep query="grogu" errors={[]} action={noop} />);
+
+    expect(container.querySelector('input[name="upc"]')).toBeNull();
+  });
 });
 
 describe("ConfirmStep", () => {
@@ -182,6 +218,79 @@ describe("ConfirmStep", () => {
     expect(screen.getByRole("button", { name: "ADD DUPLICATE (+1)" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "CONFIRM — IT'S MINE" })).not.toBeInTheDocument();
   });
+
+  it("says MATCHED BY BARCODE only when the catalog itself knew the code", () => {
+    const { rerender } = render(
+      <ConfirmStep
+        figure={adminFigure()}
+        siblings={[]}
+        duplicate={null}
+        query=""
+        upc={UPC}
+        matchedByBarcode
+        errors={[]}
+        duplicateAction={noop}
+      />,
+    );
+
+    expect(screen.getByText(/MATCHED BY BARCODE/)).toBeInTheDocument();
+    expect(screen.getByText(/8 89698 63675 9/)).toBeInTheDocument();
+
+    rerender(
+      <ConfirmStep
+        figure={adminFigure()}
+        siblings={[]}
+        duplicate={null}
+        query=""
+        upc={UPC}
+        errors={[]}
+        duplicateAction={noop}
+      />,
+    );
+
+    // A guess out of a product title is not a match, and must not claim to be one.
+    expect(screen.queryByText(/MATCHED BY BARCODE/)).not.toBeInTheDocument();
+    expect(screen.getByText(/8 89698 63675 9/)).toBeInTheDocument();
+  });
+
+  it("carries the barcode into the details step and into every sibling", () => {
+    render(
+      <ConfirmStep
+        figure={adminFigure()}
+        siblings={SIBLINGS}
+        duplicate={null}
+        query=""
+        upc={UPC}
+        errors={[]}
+        duplicateAction={noop}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "CONFIRM — IT'S MINE" })).toHaveAttribute(
+      "href",
+      `/admin/add?step=details&ref=${REF}&upc=${UPC}`,
+    );
+    expect(screen.getByRole("link", { name: /Spider-Man \(Metallic\)/ })).toHaveAttribute(
+      "href",
+      `/admin/add?step=confirm&ref=${SIBLINGS[0].id}&upc=${UPC}`,
+    );
+  });
+
+  it("carries the barcode through the duplicate bump too", () => {
+    const { container } = render(
+      <ConfirmStep
+        figure={adminFigure({ ownedCount: 1 })}
+        siblings={[]}
+        duplicate={{ targetId: "owned-1", since: "2025-04-12", quantity: 1 }}
+        query=""
+        upc={UPC}
+        errors={[]}
+        duplicateAction={noop}
+      />,
+    );
+
+    expect(container.querySelector('form input[name="upc"]')).toHaveValue(UPC);
+  });
 });
 
 describe("DetailsStep", () => {
@@ -217,6 +326,83 @@ describe("DetailsStep", () => {
     );
 
     expect(container.querySelector('input[name="referenceFigureId"]')).toHaveValue(REF);
+    // No scan, no field — the backfill is a no-op it never has to reason about.
+    expect(container.querySelector('input[name="upc"]')).toBeNull();
+  });
+
+  it("hands the scanned barcode to the save, which is where the catalog learns it", () => {
+    const { container } = render(
+      <DetailsStep
+        figure={adminFigure()}
+        defaults={defaults}
+        upc={UPC}
+        errors={[]}
+        action={noop}
+      />,
+    );
+
+    expect(container.querySelector('input[name="upc"]')).toHaveValue(UPC);
+  });
+});
+
+describe("ScanResultStep", () => {
+  it("shows the code, what the lookup called it, and asks rather than decides", () => {
+    render(
+      <ScanResultStep
+        upc={UPC}
+        notice="BARCODE FOUND — PICK THE VARIANT."
+        parsedTitle="Spider-Man Last Stand"
+        candidates={[adminFigure()]}
+      />,
+    );
+
+    expect(screen.getByText("8 89698 63675 9")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("BARCODE FOUND");
+    expect(screen.getByText("Spider-Man Last Stand")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "IS IT ONE OF THESE?" })).toBeInTheDocument();
+  });
+
+  it("marks every candidate as a guess, not a barcode match", () => {
+    render(
+      <ScanResultStep
+        upc={UPC}
+        notice="BARCODE FOUND — PICK THE VARIANT."
+        parsedTitle="Spider-Man"
+        candidates={[adminFigure()]}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: /Spider-Man/ })).toHaveAttribute(
+      "href",
+      `/admin/add?step=confirm&ref=${REF}&upc=${UPC}&via=lookup`,
+    );
+  });
+
+  it("keeps the escape hatches, both of them, carrying the barcode", () => {
+    render(
+      <ScanResultStep upc={UPC} notice="BARCODE FOUND." parsedTitle="Venom" candidates={[]} />,
+    );
+
+    expect(screen.getByRole("link", { name: /ADD AS NEW FIGURE/ })).toHaveAttribute(
+      "href",
+      `/admin/add?step=new&upc=${UPC}&q=Venom`,
+    );
+    expect(screen.getByRole("link", { name: "TYPE INSTEAD" })).toHaveAttribute(
+      "href",
+      "/admin/add",
+    );
+  });
+});
+
+describe("ScanFailedStep", () => {
+  it("explains a checksum failure instead of pretending it scanned nothing", () => {
+    render(<ScanFailedStep notice="THAT BARCODE DOES NOT CHECK OUT. TYPE THE NUMBER?" />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("THAT BARCODE DOES NOT CHECK OUT");
+    expect(screen.getByRole("link", { name: "TYPE INSTEAD" })).toHaveAttribute(
+      "href",
+      "/admin/add",
+    );
   });
 });
 

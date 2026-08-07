@@ -103,3 +103,34 @@ carries a `category`: `peter` · `spider_verse` · `friends_foes` · `other`, la
 - **`other` exists so the vault can hold non-Spider-Man figures** — 7 of the owner's 19 are
   Deadpools, Stitches, Harry Potter and the Little Prince. Without the bucket they would need
   a second table or free-text names, and the shelf could not link them to a catalog row.
+
+## ADR-010 · The scanner is an enrichment loop, and a barcode is never overwritten
+
+**2026-08-07 · accepted.** ADR-006 fixed the scanner's engine; this one fixes what the
+scanner is FOR. `reference_figures.upc` shipped empty on all 247 rows — ADR-008 seeded the
+catalog from public checklists, and checklists print pop numbers, not barcodes. So "scan a
+box, look it up" was never available on day one, and building for it would have shipped a
+button that always missed.
+
+- **The loop instead.** scan → catalog (miss, at first) → **one** UPCitemdb call → a
+  heuristic figure name out of the product title → fuzzy match against our own catalog
+  (the same FTS + `pg_trgm` pair public search uses) → the owner confirms which row it is →
+  **the code is written onto that row**. The next scan of that box is a catalog hit costing
+  nothing. The API bill therefore shrinks toward zero as the shelf gets scanned, instead of
+  growing with use.
+- **Confirm stays mandatory** (ADR-006) and gets a second reason: before the backfill the
+  match is a _guess made from a retailer's product title_, not a barcode match. The screen
+  says which one it is — `MATCHED BY BARCODE` appears only when the catalog itself knew the
+  code.
+- **A different code never overwrites an existing one.** Funko exclusives genuinely share
+  UPCs, so a clash is evidence of ambiguity, not a correction: the old value stays, the row
+  gets `needs_review`, and the new `review_note` column records both codes for triage.
+  Trading a hand-checked fact for a camera's guess is not an upgrade. (Rejected
+  alternative: last-write-wins, which loses exactly the rows a human had already resolved.)
+- **Stored as EAN-13, looked up as both.** A UPC-A is the same code with a leading `0`; one
+  canonical spelling in the column keeps "is this the same barcode?" a decidable question,
+  while lookups query both forms because hand-entered rows may hold either.
+- **Budget over cleverness.** The free tier is 100 lookups/day/IP with no key, so: catalog
+  first, one call per scan, no retries on 429, a 5s timeout, and every failure rendered as a
+  sentence with the keyboard next to it. A retry loop would burn a day's quota in an
+  afternoon and buy nothing the owner could not type in five seconds.

@@ -33,6 +33,26 @@
 
 If ADR picks Railway Bucket instead of R2, the S3-compatible equivalents replace the `R2_*` set.
 
+### Needed for Phase 7 (scanner): nothing
+
+The barcode scanner adds **no environment variables at all**, and that is worth writing down
+rather than leaving as an absence:
+
+- **UPCitemdb's free trial tier takes no key** — no header, no account. The cost of that is
+  a hard **100 lookups per day per IP** with no way to raise it, so the budget is defended in
+  code instead of in config (one call per scan, no retries, catalog checked first). If the
+  ceiling ever starts biting, the paid tier introduces a `user_key`/`key_type` pair and
+  `src/lib/barcode/lookup.ts` is the only file that would learn about them.
+- **The barcode reader's WebAssembly is a build artifact, not config.**
+  `scripts/copy-zxing-wasm.mjs` runs on `postinstall` and `prebuild` and copies
+  `zxing-wasm`'s 1.0 MB `zxing_reader.wasm` into `public/barcode/`, which is git-ignored.
+  Nothing to set on Vercel; `npm ci` does it. If that copy is ever missing, the scanner says
+  `THE CAMERA DID NOT START.` and the typed path still works.
+- **The camera needs HTTPS.** `getUserMedia` refuses an insecure context, so the scanner can
+  only be exercised on the Vercel preview/production URL, never on `http://localhost:3000`
+  from a phone. The overlay detects this and says `THE CAMERA NEEDS HTTPS.` rather than
+  hanging.
+
 ### Optional (Phase 8)
 
 | Var                                    | What                          |

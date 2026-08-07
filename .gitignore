@@ -25,3 +25,6 @@ coverage/
 
 # manual db backups (scripts/backup-db.sh)
 backups/
+
+# barcode reader wasm — copied out of node_modules by scripts/copy-zxing-wasm.mjs
+/public/barcode/

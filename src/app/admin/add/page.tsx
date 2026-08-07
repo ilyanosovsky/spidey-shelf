@@ -1,7 +1,19 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { lookupUpcItemDb } from "@/lib/barcode/lookup";
 import {
+  chooseScanTarget,
+  mergeScanCandidates,
+  parseScanOrigin,
+  scanFallbackRoute,
+  scanNoticeMessage,
+  SCAN_CANDIDATE_LIMIT,
+} from "@/lib/barcode/scan-flow";
+import { parseProductTitle } from "@/lib/barcode/upcitemdb";
+import { normalizeScannedCode } from "@/lib/barcode/upc";
+import {
+  findFiguresByUpc,
   getAdminFigure,
   getOwnedFigure,
   getVaultStats,
@@ -23,6 +35,7 @@ import {
   quickAddDefaults,
   quickAddErrorParam,
   quickAddHref,
+  scannedUpcValue,
   variantSiblings,
   type AdminCatalogFigure,
 } from "@/lib/quick-add";
@@ -33,15 +46,20 @@ import { DetailsStep } from "./details-step";
 import { DoneStep } from "./done-step";
 import { IdentifyStep } from "./identify-step";
 import { NewFigureStep } from "./new-figure-step";
+import { ScanFailedStep, ScanResultStep } from "./scan-result-step";
 
 /**
- * Quick Add — one route, five frames, `?step=` decides which.
+ * Quick Add — one route, six frames, `?step=` decides which.
  *
  * Steps are URLs rather than client state, which buys three things at once: the back button
  * works, a half-finished add survives a phone locking itself, and every frame is a plain
  * server render with no JavaScript to download first. Everything this file does is fetch and
- * dispatch — the rules live in `src/lib/quick-add.ts`, the writes in `./actions.ts`, and each
- * step component is a pure function of its props.
+ * dispatch — the rules live in `src/lib/quick-add.ts` and `src/lib/barcode/`, the writes in
+ * `./actions.ts`, and each step component is a pure function of its props.
+ *
+ * Phase 7 added `scan-result`, the one frame that decides rather than renders a query, and
+ * `?upc=` — which every step from there on carries, because the write at the end of the flow
+ * is what teaches the catalog the barcode.
  *
  * `force-dynamic` is REQUIRED, not a preference: without it `next build` would prerender the
  * page and query Railway at build time, which CI (no DATABASE_URL) cannot do. See
@@ -73,9 +91,16 @@ export default async function QuickAddPage({
   const step = parseQuickAddStep(params.step);
   const errors = parseQuickAddErrors(params.err);
   const query = searchQueryValue(params.q);
+  const upc = scannedUpcValue(firstParam(params.upc));
+
+  if (step === "scan-result") {
+    return renderScanResult(firstParam(params.upc));
+  }
 
   if (step === "new") {
-    return <NewFigureStep query={query} errors={errors} action={createReferenceFigureAction} />;
+    return (
+      <NewFigureStep query={query} upc={upc} errors={errors} action={createReferenceFigureAction} />
+    );
   }
 
   if (step === "confirm" || step === "details") {
@@ -87,6 +112,7 @@ export default async function QuickAddPage({
         <DetailsStep
           figure={figure}
           defaults={quickAddDefaults(today(), place)}
+          upc={upc}
           errors={errors}
           action={saveSightingAction}
         />
@@ -104,6 +130,8 @@ export default async function QuickAddPage({
         siblings={variantSiblings(figure, candidates)}
         duplicate={findOwnedDuplicate(copies)}
         query={query}
+        upc={upc}
+        matchedByBarcode={parseScanOrigin(params.via) === "barcode"}
         errors={errors}
         duplicateAction={addDuplicateAction}
       />
@@ -132,6 +160,77 @@ async function requireFigure(raw: string | string[] | undefined): Promise<AdminC
   const figure = id ? await getAdminFigure(id) : null;
   if (!figure) redirect(quickAddHref("identify", { err: quickAddErrorParam(["FIGURE_GONE"]) }));
   return figure;
+}
+
+/**
+ * Where a decoded barcode lands — three graded answers, in cost order.
+ *
+ * 1. **The catalog.** A row already carrying the code (in either spelling) goes straight
+ *    to the confirm step with `MATCHED BY BARCODE`. Free, instant, and the state every
+ *    scanned figure ends up in after its first pass through this function.
+ * 2. **UPCitemdb, exactly once.** The trial tier is 100 lookups a day for the whole
+ *    deployment, so this is reached only on a catalog miss, is never retried, and its
+ *    failures are outcomes rather than exceptions. Its product title is parsed by a
+ *    heuristic and fuzzy-matched against our own catalog — the names will not agree, which
+ *    is precisely why the next screen asks instead of deciding.
+ * 3. **The new-figure form**, prefilled with whatever survived, barcode carried.
+ *
+ * Every branch keeps `upc` in the URL, because the write at the end of the flow is what
+ * backfills it onto the confirmed row. That is the loop: today's API call is tomorrow's
+ * catalog hit.
+ */
+async function renderScanResult(raw: string | undefined) {
+  const scanned = normalizeScannedCode(raw);
+  // A URL is not a decode. A code that fails its own arithmetic never reaches the API.
+  if (!scanned) return <ScanFailedStep notice={scanNoticeMessage("BAD_BARCODE")} />;
+
+  const matches = await findFiguresByUpc(scanned.forms);
+  const known = chooseScanTarget(matches);
+  if (known) {
+    redirect(quickAddHref("confirm", { ref: known, upc: scanned.ean13, via: "barcode" }));
+  }
+
+  const lookup = await lookupUpcItemDb(scanned.query);
+  const title = lookup.kind === "hit" ? parseProductTitle(lookup.title) : null;
+
+  const [byNumber, byName] = await Promise.all([
+    title?.popNumber
+      ? searchAdminCatalog({
+          kind: "number",
+          popNumber: title.popNumber,
+          raw: String(title.popNumber),
+        })
+      : Promise.resolve([]),
+    title?.name ? searchAdminCatalog({ kind: "text", text: title.name }) : Promise.resolve([]),
+  ]);
+
+  const candidates = mergeScanCandidates(byNumber, byName, SCAN_CANDIDATE_LIMIT);
+  const route = scanFallbackRoute(lookup, candidates.length);
+
+  if (route.kind === "candidates") {
+    return (
+      <ScanResultStep
+        upc={scanned.ean13}
+        notice={scanNoticeMessage(route.notice)}
+        parsedTitle={title?.name ?? null}
+        candidates={candidates}
+      />
+    );
+  }
+
+  return (
+    <NewFigureStep
+      query={title?.name ?? ""}
+      prefill={{
+        name: title?.name ?? "",
+        popNumber: title?.popNumber ? String(title.popNumber) : "",
+      }}
+      upc={scanned.ean13}
+      notice={scanNoticeMessage(route.notice)}
+      errors={[]}
+      action={createReferenceFigureAction}
+    />
+  );
 }
 
 /**

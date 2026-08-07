@@ -32,11 +32,18 @@ const STATUS_LABELS: Record<string, string> = {
 export function DetailsStep({
   figure,
   defaults,
+  upc,
   errors,
   action,
 }: {
   figure: AdminCatalogFigure;
   defaults: QuickAddDefaults;
+  /**
+   * The scanned barcode, when this add started at the camera. It rides the form rather
+   * than the session so the save is one self-contained POST — and saving is where the
+   * catalog learns the code (`decideUpcBackfill`).
+   */
+  upc?: string | null;
   errors: readonly QuickAddErrorCode[];
   action: QuickAddFormAction;
 }) {
@@ -47,7 +54,7 @@ export function DetailsStep({
           <h1 className="font-pixel text-base leading-relaxed text-cream">
             {QUICK_ADD_COPY.detailsTitle}
           </h1>
-          <PixelLink href={quickAddHref("confirm", { ref: figure.id })}>BACK</PixelLink>
+          <PixelLink href={quickAddHref("confirm", { ref: figure.id, upc })}>BACK</PixelLink>
         </div>
         <div className="mt-5">
           <QuickAddRail step="details" />
@@ -63,6 +70,7 @@ export function DetailsStep({
         <form action={action} className="flex flex-col gap-4">
           {/* The figure is decided by the previous step; the action re-checks it exists. */}
           <input type="hidden" name="referenceFigureId" value={figure.id} />
+          {upc ? <input type="hidden" name="upc" value={upc} /> : null}
 
           <div className="flex flex-col gap-2">
             <label htmlFor="acquiredAt" className={labelClass}>

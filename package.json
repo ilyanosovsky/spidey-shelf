@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "prebuild": "node scripts/copy-zxing-wasm.mjs",
+    "postinstall": "node scripts/copy-zxing-wasm.mjs",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
@@ -25,7 +27,8 @@
     "postgres": "^3.4.9",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "zxing-wasm": "^3.1.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

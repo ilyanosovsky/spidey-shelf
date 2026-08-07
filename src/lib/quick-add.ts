@@ -1,16 +1,18 @@
+import { normalizeScannedCode } from "./barcode/upc";
 import { FIGURE_CATEGORIES, type FigureCategory } from "./categories";
 import { isRealIsoDate, looksLikeIsoDate, OWNED_STATUSES, type OwnedStatus } from "./collection";
 import { parseReferenceSearchQuery } from "./collection-form";
 import { formatSightingDate } from "./format";
 
 /**
- * Quick Add — everything the four-step add flow decides, minus the database.
+ * Quick Add — everything the add flow decides, minus the database.
  *
  * The realistic way a collection tracker dies is that adding a figure takes ninety seconds
- * and the owner stops bothering. So the flow is: search → tap → confirm → save, story later.
- * Each step is a URL (`/admin/add?step=…`), which means every one of them is a plain server
- * render with no client JavaScript at all: the phone in the shop has one bar of wifi, and a
- * form that works before hydration is a form that works.
+ * and the owner stops bothering. So the flow is: search (or scan) → tap → confirm → save,
+ * story later. Each step is a URL (`/admin/add?step=…`), which means every one of them is a
+ * plain server render: the phone in the shop has one bar of wifi, and a form that works
+ * before hydration is a form that works. The only client JavaScript in the whole flow is the
+ * camera, and it is not downloaded until the SCAN button is pressed (`src/lib/barcode/`).
  *
  * Because the steps are URLs, the things that could go wrong are URLs too — see
  * {@link parseQuickAddStep} and {@link QUICK_ADD_ERRORS}. Nothing in this file touches a
@@ -20,8 +22,21 @@ import { formatSightingDate } from "./format";
 
 /* ------------------------------------------------------------------ steps and URLs */
 
-/** The five frames of the flow, in the order the owner walks them. */
-export const QUICK_ADD_STEPS = ["identify", "new", "confirm", "details", "done"] as const;
+/**
+ * The frames of the flow, in the order the owner walks them.
+ *
+ * `scan-result` (Phase 7) is a landing frame, not a screen he navigates to: the overlay
+ * submits the decoded barcode into it, and it either forwards to `confirm` (the catalog
+ * knew the code), renders the candidates it found, or hands over to `new`.
+ */
+export const QUICK_ADD_STEPS = [
+  "identify",
+  "scan-result",
+  "new",
+  "confirm",
+  "details",
+  "done",
+] as const;
 
 export type QuickAddStep = (typeof QUICK_ADD_STEPS)[number];
 
@@ -359,6 +374,22 @@ export interface NewFigureInput {
   productLine: string | null;
   /** ADR-009: the denominator is the `peter` bucket, so this mirrors the category. */
   countsTowardTotal: boolean;
+  /**
+   * The barcode that started this, canonicalised (Phase 7), or `null` when the figure was
+   * typed rather than scanned. A brand-new row cannot clash with itself, so this is the
+   * one place a scanned code is written without consulting `decideUpcBackfill()`.
+   */
+  upc: string | null;
+}
+
+/**
+ * `?upc=` / a hidden field → the canonical thirteen-digit form, or `null`.
+ *
+ * The check digit is recomputed rather than trusted: a URL is not a decode, and a code
+ * that fails arithmetic must not reach the column that later scans will match on.
+ */
+export function scannedUpcValue(raw: string | undefined): string | null {
+  return normalizeScannedCode(raw ?? "")?.ean13 ?? null;
 }
 
 /**
@@ -422,12 +453,13 @@ export function parseNewFigureForm(fields: QuickAddFormFields): QuickAddParse<Ne
       category: resolved,
       productLine: trimmedOrNull(fields.productLine),
       countsTowardTotal: resolved === "peter",
+      upc: scannedUpcValue(fields.upc),
     },
   };
 }
 
 export function newFigureFormFields(formData: FormData): QuickAddFormFields {
-  return readFields(formData, ["name", "popNumber", "category", "productLine", "q"]);
+  return readFields(formData, ["name", "popNumber", "category", "productLine", "q", "upc"]);
 }
 
 /* ------------------------------------------------------------------ step 3: the details */
@@ -441,6 +473,12 @@ export interface QuickAddDetailsInput {
   acquiredCountry: string | null;
   story: string | null;
   needsStory: boolean;
+  /**
+   * The barcode this add started from, or `null` when it started from the search box.
+   * Not written to `owned_figures` — it is the input to the catalog backfill that makes
+   * the next scan of this figure a catalog hit instead of an API call.
+   */
+  upc: string | null;
 }
 
 /** The two submit buttons of the details form. */
@@ -496,6 +534,7 @@ export function parseQuickAddDetailsForm(
       acquiredCountry,
       story,
       needsStory: story === null,
+      upc: scannedUpcValue(fields.upc),
     },
   };
 }
@@ -509,6 +548,7 @@ export function quickAddDetailsFormFields(formData: FormData): QuickAddFormField
     "acquiredCountry",
     "story",
     "intent",
+    "upc",
   ]);
 }
 
@@ -572,8 +612,6 @@ export const QUICK_ADD_COPY = {
   identifyTitle: "NEW SIGHTING",
   identifyLabel: "NUMBER OR NAME",
   identifySubmit: "SCAN THE CATALOG",
-  /** Phase 7 lives here. Rendered disabled, with no handler behind it. */
-  scanSoon: "⌖ SCAN — SOON",
   addAsNew: "ADD AS NEW FIGURE",
   noMatch: "NOTHING IN THE CATALOG MATCHES THAT.",
   needsReviewChip: "NEEDS REVIEW",
