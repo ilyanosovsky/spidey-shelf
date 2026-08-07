@@ -96,7 +96,9 @@ rather than leaving as an absence:
 **Both or neither.** `isEbayConfigured()` needs the pair; a half-filled dashboard is treated as
 unconfigured, and with the feature off **nothing about prices renders, is queried or is
 fetched** — no panel on `/figure/[slug]`, no chips on `/wishlist`, no empty state explaining
-itself. That is the intended shipping condition today.
+itself. **Status: the owner's production keyset is configured (local + Vercel) and the client
+was live-verified on 2026-08-07** — real OAuth and Browse responses matched the fixtures with
+zero parser changes.
 
 #### How to get them
 
@@ -105,19 +107,26 @@ itself. That is the intended shipping condition today.
 2. **Application Keys** → create an application. Two keysets appear, **Sandbox** and
    **Production**. Take the **Production** one — sandbox has no real listings, so a sandbox
    median is a number about nothing.
-3. From that keyset: **App ID (Client ID)** → `EBAY_CLIENT_ID`, **Cert ID (Client Secret)** →
+3. **The compliance blocker everyone hits**: the app shows as **(Non Compliant)** and the
+   production keys stay inert until eBay's "Marketplace Account Deletion" requirement is
+   answered. This project persists **no eBay user data** (only per-figure price aggregates),
+   so the right answer is the exemption: the keyset's **Alerts & Notifications** tab →
+   delivery method **Marketplace Account Deletion** → toggle **"Exempted from Marketplace
+   Account Deletion"** ON and confirm. No endpoint, no verification token, no email needed.
+   (Verified in practice 2026-08-07 — this was the one non-obvious step.)
+4. From that keyset: **App ID (Client ID)** → `EBAY_CLIENT_ID`, **Cert ID (Client Secret)** →
    `EBAY_CLIENT_SECRET`. The Dev ID is not used, and neither is a user token — the Browse
    search this project makes is an _application_ call, so the client-credentials grant with the
    `api_scope` scope is all it needs. Nothing here can act on the owner's eBay account.
-4. Add both to local `.env` and to Vercel (Production + Preview), then redeploy. No `$`-escaping
+5. Add both to local `.env` and to Vercel (Production + Preview), then redeploy. No `$`-escaping
    worry here — unlike the bcrypt hash, eBay keys are alphanumeric with dashes.
 
-> ⚠️ **The first deploy with real keys is also the first time this code meets the live API.**
-> The client was written against eBay's published Browse and OAuth contracts and tested against
-> fixtures (`src/lib/ebay/parse.test.ts`) — never against a real response. Open one figure page,
-> confirm the MARKET SIGNAL numbers look like the eBay search behind `SEE ON EBAY`, and if the
-> shapes differ, paste one real `item_summary/search` body into those fixtures and fix the
-> parser against it.
+> ✅ **Live-shape verification done (2026-08-07).** OAuth client-credentials → 200
+> (`Application Access Token`, 7200s), one real `item_summary/search` → 200 with 54 listings,
+> both parsed by the existing fixtures-backed parsers with zero changes; `/figure/…-1450`
+> then rendered `MARKET SIGNAL ~$16 · 25 LISTINGS` end-to-end and wrote the first
+> `price_snapshots` row. If eBay ever changes the shapes, the panel degrades to nothing and
+> the fix starts by diffing one real body against `src/lib/ebay/parse.test.ts`.
 
 The free tier is **5,000 Browse calls per day**, and the app is nowhere near it by design: a
 24-hour cache in `price_snapshots`, a refresh only from a figure page, one attempt with no
