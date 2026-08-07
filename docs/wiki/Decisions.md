@@ -181,3 +181,60 @@ interim source is **the owner**: he uploads one image per figure from
   renderer (`BoxArt`) already treats an absolute URL and a future bucket path as the same
   thing, and `PixelSpiderArt` stays as both the empty state and the `onError` fallback.
   Nothing has to be torn down first — the same property ADR-008 was written to preserve.
+
+## ADR-012 · A new city is geocoded once, at write time — never at request time
+
+**2026-08-07 · accepted** (owner's call, decided in chat). Phase 8 put the SIGHTINGS MAP's
+coordinates in a dictionary in code and wrote down why: nine cities, hand-checked, retroactive
+over rows seeded from a Notion export, no migration, and a city it had never heard of degrades
+to an `UNCHARTED SECTORS` line rather than a crash. That held for exactly as long as the shelf
+stopped growing. The owner bought a Spider-Man in **Kuala Lumpur**, logged it from his phone,
+and the map answered by listing it underneath itself — because the only way to put a new pin
+on it was a pull request. A travel map that needs a deploy to acknowledge travel is not a
+travel map.
+
+- **The trade Phase 8 refused is not the trade being made.** Phase 8 rejected "a geocoder in
+  the admin flow" as a second thing to type on a phone. Nothing new is typed: the owner still
+  enters date, city, country. What changed is that the server action now RESOLVES the city he
+  already gave it, in the milliseconds between validating the form and the `INSERT`.
+- **The dormant columns become the store.** `owned_figures.acquired_lat` / `acquired_lng` have
+  existed since Phase 1 and were NULL on every row. They now hold the answer, and the map reads
+  **`column ?? dictionary`** — specific answer first, general one second.
+- **The founding nine are NOT backfilled.** Haifa, Munich, Tbilisi, Batumi, Moscow, LA, Madrid,
+  Mallorca and Amsterdam stay NULL and stay dictionary-placed. Their coordinates were checked
+  by a human, including two judgement calls a gazetteer would get wrong (`US:la` is Los Angeles
+  because that is where the figure was bought; `ES:mallorca` is an island pinned to Palma), and
+  spending nine requests to move some of them by a few hundred metres is not an improvement.
+- **OpenStreetMap's Nominatim, and the usage policy is a term of the decision**
+  (<https://operations.osmfoundation.org/policies/nominatim/>). It is free, needs no key and
+  runs on the OSM Foundation's donated hardware, so the terms it asks for are strict and this
+  project meets them by construction rather than by discipline: a real identifying
+  `User-Agent`, **one request per NEW city over the lifetime of the collection** (the
+  dictionary and the rows already on the shelf answer first, so the second figure from Kuala
+  Lumpur costs nothing), one attempt with no retries, a 5-second budget, and the answer stored
+  permanently — which is exactly the caching the policy asks for. A structured
+  `city=` + `countrycodes=` query rather than free-text `q=`, because a hard country filter is
+  what stops `LA` resolving to Louisiana.
+- **No request-time geocoding, ever.** The call happens in two server actions and nowhere else.
+  A page renders from columns that were filled in when the row was written, so a visitor — or a
+  crawler, or a link pasted into a group chat — cannot cost OSM a single request. This is the
+  same inversion Phase 11 made for eBay prices, and for the same reason: a per-visitor call to
+  a third party is a bill and an outage waiting to be someone else's decision.
+- **Two decimals, by design.** About a kilometre at the equator. A marker is five pixels of
+  spider on a crop 8,000 km wide, so nothing finer is visible — and this is a public site
+  where the geocoder is being asked about a place the owner physically stood in. Full precision
+  for a small town is close to the shop's doorstep. It applies to geocoded answers only; a
+  dictionary value is already a city centre and is stored as written.
+- **It can never cost a sighting.** A timeout, a 429, an HTML error page or a town nobody has
+  mapped all resolve to the same thing: the row is saved with NULL coordinates, exactly as
+  every row was before this ADR, and the figure lands on the shelf. Nothing is written down, so
+  the collection edit screen IS the retry — saving that form resolves the place again, for
+  free, if it is now known. (Rejected alternative: fail the save, or retry the lookup. Both
+  trade a figure the owner is holding for a pin nobody has asked for yet.)
+- **One-time backfill, by script.** `scripts/backfill-geocode.ts` (`npm run geo:backfill`,
+  `--dry-run` supported) fills the rows written before this ADR whose city the dictionary does
+  not know — one distinct city today, and one request. It is rerunnable and idempotent: a row
+  with a coordinate is never selected again. `db:seed:owned` deliberately does **not** geocode
+  — it is a bulk upsert of the whole CSV, and a loop of network calls inside a seeder is the
+  "heavy use" the policy names; the script covers that job with the 1-per-second spacing a bulk
+  pass actually needs.

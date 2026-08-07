@@ -19,7 +19,8 @@
     "db:seed": "tsx scripts/seed-catalog.ts",
     "db:seed:owned": "tsx scripts/seed-owned.ts",
     "icons:generate": "tsx scripts/generate-icons.ts",
-    "map:generate": "node scripts/generate-world-land.mjs"
+    "map:generate": "node scripts/generate-world-land.mjs",
+    "geo:backfill": "tsx scripts/backfill-geocode.ts"
   },
   "dependencies": {
     "@uploadthing/react": "^7.3.3",

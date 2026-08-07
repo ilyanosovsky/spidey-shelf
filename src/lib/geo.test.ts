@@ -9,6 +9,7 @@ import {
   graticule,
   GRATICULE_STEP,
   hairline,
+  isCoordinate,
   lookupCity,
   MAP_ASPECT,
   MAP_MIN_SPAN,
@@ -16,6 +17,7 @@ import {
   markerCell,
   normalizeCityName,
   projectEquirectangular,
+  storedCoordinate,
   viewBoxOf,
   WORLD_BOUNDS,
   type MapPoint,
@@ -90,6 +92,56 @@ describe("lookupCity", () => {
       expect(Math.abs(lat), key).toBeLessThanOrEqual(90);
       expect(Math.abs(lng), key).toBeLessThanOrEqual(180);
     }
+  });
+});
+
+describe("isCoordinate", () => {
+  it("accepts the edges of the graticule", () => {
+    expect(isCoordinate({ lat: 90, lng: 180 })).toBe(true);
+    expect(isCoordinate({ lat: -90, lng: -180 })).toBe(true);
+    expect(isCoordinate({ lat: 0, lng: 0 })).toBe(true);
+  });
+
+  it("refuses a place that is not on Earth", () => {
+    expect(isCoordinate({ lat: 91, lng: 0 })).toBe(false);
+    expect(isCoordinate({ lat: 0, lng: 181 })).toBe(false);
+    expect(isCoordinate({ lat: Number.NaN, lng: 0 })).toBe(false);
+    expect(isCoordinate({ lat: 0, lng: Number.POSITIVE_INFINITY })).toBe(false);
+  });
+});
+
+describe("storedCoordinate (Phase 13 — the numeric columns)", () => {
+  it("reads the strings Drizzle hands back from a numeric column", () => {
+    expect(storedCoordinate("3.14", "101.69")).toEqual({ lat: 3.14, lng: 101.69 });
+    expect(storedCoordinate("-33.87", "-70.67")).toEqual({ lat: -33.87, lng: -70.67 });
+  });
+
+  it("takes numbers too, so a caller that already parsed need not stringify", () => {
+    expect(storedCoordinate(3.14, 101.69)).toEqual({ lat: 3.14, lng: 101.69 });
+  });
+
+  it("is null when either half is missing — half a coordinate is not a place", () => {
+    expect(storedCoordinate(null, "101.69")).toBeNull();
+    expect(storedCoordinate("3.14", null)).toBeNull();
+    expect(storedCoordinate(null, null)).toBeNull();
+    expect(storedCoordinate(undefined, undefined)).toBeNull();
+  });
+
+  it("refuses a blank column rather than answering null island", () => {
+    // `Number("")` and `Number(" ")` are both 0, which would put the row in the Gulf of
+    // Guinea — the exact bug the map would then have to explain to somebody.
+    expect(storedCoordinate("", "")).toBeNull();
+    expect(storedCoordinate("  ", "101.69")).toBeNull();
+  });
+
+  it("refuses garbage and out-of-range values", () => {
+    expect(storedCoordinate("abc", "101.69")).toBeNull();
+    expect(storedCoordinate("91", "0")).toBeNull();
+    expect(storedCoordinate("0", "181")).toBeNull();
+  });
+
+  it("keeps 0,0 — it is a real coordinate, not an empty one", () => {
+    expect(storedCoordinate("0", "0")).toEqual({ lat: 0, lng: 0 });
   });
 });
 

@@ -295,34 +295,67 @@ shared. The rules that keep it inside the budget are load-bearing, not hygiene:
   captive portal's HTML, a 500) parsed into an outcome rather than thrown — this runs inside
   a page render, and a thrown fetch would replace the whole flow with an error boundary.
 
-## The SIGHTINGS MAP (Phase 8)
+## The SIGHTINGS MAP (Phase 8, geocoded since Phase 13)
 
 `/stats`, between the WEB RADAR and the ACQUISITION LOG: a dark navy world with a thin
 graticule and a pixel spider on every city the collection came from. No map library, no tiles,
 no runtime dependency — three files and one path.
 
-### Coordinates live in code, not in the database
+### Where the coordinates come from: the dictionary, then the row
 
-`owned_figures.acquired_lat` / `acquired_lng` have existed since Phase 1 and are **still NULL
-on all 19 rows**. `src/lib/geo.ts` carries the nine cities instead, keyed
-`<alpha-2>:<normalised city>`, and that is deliberate rather than lazy:
+Two sources, read in this order by `sightingCoordinate()` in `src/lib/sightings-map.ts`:
 
-- **Retroactive.** A dictionary places every row that already exists, including the ones seeded
-  from the owner's Notion export. Columns would need a backfill pass, and a backfill of
-  hand-typed city names is a geocoding job with a review step.
-- **No migration, and no new failure mode.** A city the dictionary has never heard of becomes
-  an `UNCHARTED SECTORS` line under the map — the figure is named, its place is printed, and
-  nothing throws. A NULL coordinate column would be the same absence with worse ergonomics.
-- **The admin flow does not change.** Quick Add stays "date, city, country, done"; adding a
-  geocoder would put a network call between the owner and a saved sighting, on a phone, in a
-  shop. That is the exact trade Phase 6 was built to avoid.
-- The columns stay in the schema. If per-figure precision ever matters (two shops in one city),
-  the dictionary becomes the fallback rather than the source, and no data is lost either way.
+1. **`owned_figures.acquired_lat` / `acquired_lng`** — filled in when the row was written
+   (Phase 13, see below). The specific answer.
+2. **`src/lib/geo.ts`** — a dictionary of the nine founding cities keyed
+   `<alpha-2>:<normalised city>`, hand-checked in Phase 8. The general one.
+3. Neither: an `UNCHARTED SECTORS` line under the map — the figure is named and its place
+   printed, rather than dropped. A map that silently loses a figure is worse than one that
+   admits it does not know where Milan is.
 
-The normaliser folds case, accents and apostrophes (`München` → `munchen`, `T'bilisi` →
-`tbilisi`), and aliases are **listed explicitly, never fuzzy-matched** — `US:la` resolves to Los
-Angeles because that is where the figure was bought, and `ES:mallorca` is pinned to Palma. A map
-is a factual claim; "close enough" is how a figure ends up on the wrong continent.
+The dictionary is still first in every sense that matters, and the founding nine were
+deliberately **not** backfilled: their coordinates were verified by a person, including two
+judgement calls a gazetteer gets wrong (`US:la` resolves to Los Angeles because that is where
+the figure was bought; `ES:mallorca` is an island pinned to Palma). The normaliser folds case,
+accents and apostrophes (`München` → `munchen`, `T'bilisi` → `tbilisi`), and aliases are
+**listed explicitly, never fuzzy-matched**. A map is a factual claim; "close enough" is how a
+figure ends up on the wrong continent.
+
+**A city is placed if ANY of its rows can be placed.** Clustering is keyed on
+`(country, city)` as it always was, and the cluster takes the first coordinate any of its rows
+knows, in shelf order — so a Kuala Lumpur bought before Phase 13 and one bought after are one
+pin with a count of two, not a pin and an orphan line.
+
+### Geocoding happens once, on the write path (Phase 13)
+
+Phase 8 put the coordinates in code and wrote down why, and it held until the shelf grew: the
+owner bought a figure in **Kuala Lumpur**, logged it from his phone, and the map answered by
+listing it underneath itself, because the only way to add a pin was a pull request. `src/lib/geocode/`
+is the fix, and ADR-012 is the reasoning. The shape:
+
+- **`nominatim.ts`** — pure. The endpoint, the identifying `User-Agent`, the 5s budget, the
+  structured `city=` + `countrycodes=` URL (a hard country filter is what stops `LA` becoming
+  Louisiana), the response parser, and the rounding to **two decimals** — about a kilometre,
+  which is all a five-pixel marker can show and all a public site should publish about a place
+  the owner physically stood in.
+- **`resolve.ts`** — pure, with the network call injected, so "does this reach OpenStreetMap?"
+  is a spy in a test rather than a socket. The skip logic in order: **dictionary → a row
+  already on the shelf with the same country+city → one request.** The first two make zero
+  network calls.
+- **`lookup.ts`** — the one `fetch`. One attempt, no retries, never throws.
+- **`queries.ts` / `index.ts`** — `server-only`. `resolveAcquiredCoordinate()` is what the two
+  server actions call, and `index.ts` is where the `server-only` marker lives rather than on
+  `lookup.ts`, because `scripts/backfill-geocode.ts` reuses the socket module under `tsx`,
+  where that package throws by design.
+
+**Exactly two callers, both writes**: Quick Add's details submit and the collection edit
+submit. **No page, layout, route handler or cron job geocodes** — a rendered `/stats` is a read
+of columns that were filled in long before, so a visitor cannot cost the OSM Foundation a
+request. The cost of the whole feature is one lookup per city the collection has never been to.
+
+A failure — timeout, 429, an HTML error page, a town nobody has mapped — is **two NULLs and a
+saved sighting**, never a failed save. Nothing is written down, so re-saving the row from
+`/admin/collection/[id]/edit` is the retry.
 
 ### Equirectangular, because it is linear
 

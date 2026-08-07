@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * The Quick Add writes, with the session and the database mocked out.
@@ -12,6 +12,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  *   2. what actually lands in the columns: `source`/`needs_review` on an invented catalog
  *      row, `needs_story` on a skipped sighting, and an *expression* rather than a constant
  *      when a duplicate bumps the quantity.
+ *
+ * Phase 13 adds a third: `acquired_lat` / `acquired_lng`. The geocoder is exercised for real
+ * here — only `fetch` and the "which cities does the shelf already know" query are mocked —
+ * because the thing worth protecting is the BUDGET, and a fully mocked resolver would assert
+ * that a mock was called rather than that OpenStreetMap was not.
  */
 
 const h = vi.hoisted(() => {
@@ -32,6 +37,11 @@ const h = vi.hoisted(() => {
     inserts,
     updates,
     state,
+    listKnownCityCoordinates: vi.fn(
+      async (): Promise<
+        { country: string | null; city: string | null; lat: string | null; lng: string | null }[]
+      > => [],
+    ),
     requireAdmin: vi.fn(async () => ({ sub: "admin", role: "admin" as const })),
     revalidatePath: vi.fn(),
     redirect: vi.fn((url: string) => {
@@ -74,6 +84,12 @@ vi.mock("@/lib/collection-queries", () => ({
   listOwnedCopies: h.listOwnedCopies,
   listTakenSlugs: h.listTakenSlugs,
 }));
+// `server-only` throws outside a React Server Components build; the geocoder's entry point
+// carries the marker precisely so nothing client-side can reach the network call under it.
+vi.mock("server-only", () => ({}));
+vi.mock("@/lib/geocode/queries", () => ({
+  listKnownCityCoordinates: h.listKnownCityCoordinates,
+}));
 
 import {
   addDuplicateAction,
@@ -87,6 +103,11 @@ const REF = "11111111-1111-4111-8111-111111111111";
 /** The Phase 7 research fixture: a real Funko Spider-Man barcode, printed and stored form. */
 const UPC_A = "889698636759";
 const EAN_13 = "0889698636759";
+
+/** A Nominatim jsonv2 answer, trimmed to the two fields the parser reads. */
+function geocoded(lat: string, lon: string): Response {
+  return { status: 200, json: async () => [{ lat, lon }] } as unknown as Response;
+}
 
 function form(fields: Record<string, string>): FormData {
   const data = new FormData();
@@ -105,6 +126,8 @@ async function redirectedTo(promise: Promise<unknown>): Promise<string> {
   throw new Error("the action returned without redirecting");
 }
 
+let fetchMock: ReturnType<typeof vi.fn>;
+
 beforeEach(() => {
   vi.clearAllMocks();
   h.inserts.length = 0;
@@ -114,6 +137,17 @@ beforeEach(() => {
   h.listTakenSlugs.mockResolvedValue(new Set<string>());
   h.getReferenceUpc.mockResolvedValue(null);
   h.getReferenceReviewNote.mockResolvedValue({ reviewNote: null });
+  h.listKnownCityCoordinates.mockResolvedValue([]);
+
+  // Stubbed rather than left real: a test suite that can reach the internet is a test suite
+  // that spends somebody else's rate limit, and every assertion below about "no call" would
+  // otherwise be a silent request.
+  fetchMock = vi.fn(async () => geocoded("3.1504726", "101.6941732"));
+  vi.stubGlobal("fetch", fetchMock);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe("createReferenceFigureAction", () => {
@@ -294,6 +328,95 @@ describe("saveSightingAction", () => {
 
     await expect(saveSightingAction(form({ ...valid, upc: UPC_A }))).rejects.toThrow("exploded");
     expect(h.inserts).toHaveLength(1);
+  });
+
+  /* ------------------------------------------------ Phase 13: where the city IS (ADR-012) */
+
+  const KL = { ...valid, acquiredCity: "Kuala Lumpur", acquiredCountry: "MY" };
+
+  it("geocodes a city nothing has heard of, ONCE, and stores the rounded point", async () => {
+    await redirectedTo(saveSightingAction(form(KL)));
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("nominatim.openstreetmap.org/search");
+    expect(url).toContain("countrycodes=my");
+    expect((init.headers as Record<string, string>)["User-Agent"]).toContain("spidey-shelf/");
+
+    expect(h.inserts[0].values).toMatchObject({
+      acquiredCity: "Kuala Lumpur",
+      acquiredCountry: "MY",
+      acquiredLat: "3.15",
+      acquiredLng: "101.69",
+    });
+  });
+
+  it("makes ZERO network calls for a city the dictionary already knows", async () => {
+    await redirectedTo(saveSightingAction(form(valid)));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    // Moscow is in `geo.ts`, so its coordinate is copied rather than looked up.
+    expect(h.inserts[0].values).toMatchObject({ acquiredLat: "55.756", acquiredLng: "37.617" });
+  });
+
+  it("makes ZERO network calls for a city a row on the shelf already knows", async () => {
+    h.listKnownCityCoordinates.mockResolvedValue([
+      { country: "MY", city: "KUALA LUMPUR", lat: "3.15", lng: "101.69" },
+    ]);
+
+    await redirectedTo(saveSightingAction(form(KL)));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(h.inserts[0].values).toMatchObject({ acquiredLat: "3.15", acquiredLng: "101.69" });
+  });
+
+  it("saves the sighting with NULL coordinates when the geocoder times out", async () => {
+    fetchMock.mockRejectedValue(new DOMException("aborted", "TimeoutError"));
+
+    const url = await redirectedTo(saveSightingAction(form(KL)));
+
+    expect(h.inserts).toHaveLength(1);
+    expect(h.inserts[0].values).toMatchObject({ acquiredLat: null, acquiredLng: null });
+    expect(url).toBe(`/admin/add?step=done&id=${h.state.nextId}`);
+  });
+
+  it("saves the sighting with NULL coordinates when the lookup is rate-limited", async () => {
+    fetchMock.mockResolvedValue({ status: 429, json: async () => ({}) } as unknown as Response);
+
+    await redirectedTo(saveSightingAction(form(KL)));
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(h.inserts[0].values).toMatchObject({ acquiredLat: null, acquiredLng: null });
+  });
+
+  it("saves the sighting when the shelf read itself fails — a pin is never worth the entry", async () => {
+    h.listKnownCityCoordinates.mockRejectedValue(new Error("connection reset"));
+
+    await redirectedTo(saveSightingAction(form(KL)));
+
+    expect(h.inserts).toHaveLength(1);
+    expect(h.inserts[0].values).toMatchObject({ acquiredLat: null, acquiredLng: null });
+  });
+
+  it("never geocodes a sighting with no city", async () => {
+    await redirectedTo(saveSightingAction(form({ ...valid, acquiredCity: "" })));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(h.inserts[0].values).toMatchObject({ acquiredLat: null, acquiredLng: null });
+  });
+
+  it("does not geocode a submit that never gets past validation", async () => {
+    await redirectedTo(saveSightingAction(form({ ...KL, acquiredAt: "06/08/2026" })));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(h.inserts).toHaveLength(0);
+  });
+
+  it("does not geocode before the session is verified", async () => {
+    h.requireAdmin.mockRejectedValue(new Error("NEXT_REDIRECT /login"));
+
+    await expect(saveSightingAction(form(KL))).rejects.toThrow("NEXT_REDIRECT");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
