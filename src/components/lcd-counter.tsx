@@ -39,7 +39,7 @@ export function LCDCounter({
       >
         {value}
       </p>
-      <p className="font-pixel mt-3 text-[10px] leading-relaxed tracking-wider text-lcd-glow/70">
+      <p className="font-pixel mt-3 text-[10px] leading-relaxed tracking-wider text-lcd-glow">
         {label}
       </p>
       {scanlines ? <span aria-hidden="true" className="lcd-scanlines" /> : null}

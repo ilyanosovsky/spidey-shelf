@@ -83,8 +83,8 @@ layout depends on anything else about it.
   which is the canonical shareable answer and stays correct after the gift arrives.
 - **Stats**: `/stats` reads owned/total per bucket off the view (`PETER CANON 11/120`,
   `ALL SPIDERS 12/180`, `WHOLE VAULT 15/247` — all computed, never constants) and the public
-  shelf for the year timeline and the country flags. The WebRadar's geometry is pure
-  arithmetic in `src/lib/radar.ts`.
+  shelf for the SIGHTINGS MAP, the year timeline and the country flags. The WebRadar's
+  geometry is pure arithmetic in `src/lib/radar.ts`; the map's is in `src/lib/geo.ts`.
 - **Quick Add** (admin): `/admin/add` is one route with six frames — `?step=` picks between
   `identify` · `scan-result` · `new` · `confirm` · `details` · `done`, and
   `/admin/collection/new` 307s here.
@@ -224,6 +224,127 @@ shared. The rules that keep it inside the budget are load-bearing, not hygiene:
   captive portal's HTML, a 500) parsed into an outcome rather than thrown — this runs inside
   a page render, and a thrown fetch would replace the whole flow with an error boundary.
 
+## The SIGHTINGS MAP (Phase 8)
+
+`/stats`, between the WEB RADAR and the ACQUISITION LOG: a dark navy world with a thin
+graticule and a pixel spider on every city the collection came from. No map library, no tiles,
+no runtime dependency — three files and one path.
+
+### Coordinates live in code, not in the database
+
+`owned_figures.acquired_lat` / `acquired_lng` have existed since Phase 1 and are **still NULL
+on all 19 rows**. `src/lib/geo.ts` carries the nine cities instead, keyed
+`<alpha-2>:<normalised city>`, and that is deliberate rather than lazy:
+
+- **Retroactive.** A dictionary places every row that already exists, including the ones seeded
+  from the owner's Notion export. Columns would need a backfill pass, and a backfill of
+  hand-typed city names is a geocoding job with a review step.
+- **No migration, and no new failure mode.** A city the dictionary has never heard of becomes
+  an `UNCHARTED SECTORS` line under the map — the figure is named, its place is printed, and
+  nothing throws. A NULL coordinate column would be the same absence with worse ergonomics.
+- **The admin flow does not change.** Quick Add stays "date, city, country, done"; adding a
+  geocoder would put a network call between the owner and a saved sighting, on a phone, in a
+  shop. That is the exact trade Phase 6 was built to avoid.
+- The columns stay in the schema. If per-figure precision ever matters (two shops in one city),
+  the dictionary becomes the fallback rather than the source, and no data is lost either way.
+
+The normaliser folds case, accents and apostrophes (`München` → `munchen`, `T'bilisi` →
+`tbilisi`), and aliases are **listed explicitly, never fuzzy-matched** — `US:la` resolves to Los
+Angeles because that is where the figure was bought, and `ES:mallorca` is pinned to Palma. A map
+is a factual claim; "close enough" is how a figure ends up on the wrong continent.
+
+### Equirectangular, because it is linear
+
+The projection is the whole trick: `x = lng + 180`, `y = 90 - lat`. Nothing else. That makes the
+map's coordinate space **degree space**, so:
+
+- the landmass is one SVG path with `viewBox="0 0 360 180"` and never needs re-projecting;
+- cropping to "the places he has been" is a narrower `viewBox` **and nothing else** — the crop
+  is computed from the markers by `mapBounds()`, which is pure and unit-tested;
+- an SVG with a `viewBox` and `h-auto w-full` takes its aspect ratio from the crop, so a wide
+  crop is a wide panel rather than a letterboxed one.
+
+`mapBounds()` applies three guards in order, each because of the picture it otherwise produces:
+**padding** (markers on the frame read as cut off), a **26° minimum span** (one city on its own
+would zoom to a pixel of coastline), and an **aspect clamp** (Los Angeles to Tbilisi is 163° of
+longitude against 20° of latitude — a 7:1 slit). Everything is finally clamped to the world, so
+a crop can never run off the antimeridian into empty space.
+
+### The landmass
+
+`src/lib/world-land.ts` — **Natural Earth 1:110m "land", public domain (CC0)**, taken from the
+`world-atlas` package and converted once by `scripts/generate-world-land.mjs`. The JSON is
+fetched, converted and thrown away; the repo carries 27 KB of derived path data and no
+dependency. Two details are load-bearing:
+
+- **The antimeridian is split at the map edge.** Eurasia is a single ring that runs off the
+  right side and comes back on the left, so a naive `L` between those two points draws a
+  straight line across the entire Pacific. Any segment wider than 180° ends the current subpath
+  at the border and starts a new one on the opposite side.
+- **Precision is the simplification.** Coordinates are rounded to whole degrees and consecutive
+  duplicates dropped: 54 KB → 27 KB, and coastlines that step rather than curve. That is the
+  right look for this project rather than a cost it tolerates.
+
+### Markers
+
+5×5 pixel spiders — `PixelSpiderArt`'s 16×16 sprite reduced to what survives at 25px — sized in
+**degrees rather than pixels**, so a marker is the same fraction of the panel on a 375px phone
+and on a desktop. Same-city figures are one marker with an amber count badge, coloured by the
+bucket most of that city's figures belong to. Cities 250 km apart on a 20,000 km map overlap and
+always will; markers are drawn smallest-first so the busier city ends up on top, and the legend
+beneath — flag, city, count, as real text — is where the numbers are actually read. The SVG is
+`aria-hidden`, the same rule `WebRadar` follows.
+
+## eBay MARKET SIGNAL (Phase 8) — a feature that is currently invisible
+
+`src/lib/ebay/`. Everything starts at `isEbayConfigured()`, and the owner has no keys: on the
+live deployment **no panel renders, no query is issued and no request is made**. That was
+verified, not assumed — patching `globalThis.fetch` around the real `getMarketPanel()` and
+`listPriceChips()` against the live database records zero calls.
+
+| Module        | What it is                                                                   |
+| ------------- | ---------------------------------------------------------------------------- |
+| `config.ts`   | the gate. Pure over an env-shaped object, so "no keys" is a tested state     |
+| `query.ts`    | the search string and the outbound eBay URL — pure                           |
+| `parse.ts`    | Browse + OAuth response parsing, total and throw-free — pure, fixture-tested |
+| `snapshot.ts` | TTL, the refresh decision, and every formatted string on the panel — pure    |
+| `client.ts`   | `server-only`: the secret, the two fetches, the timeout, the token cache     |
+| `queries.ts`  | `server-only`: read / upsert / list `price_snapshots`                        |
+| `market.ts`   | `server-only`: the orchestration, and the only thing a page imports          |
+
+⚠️ **Written against eBay's documented contracts and never yet run against the live API.** The
+fixtures in `parse.test.ts` are the published Browse shapes (hit / empty / 401 / 429 / garbage).
+When the owner's keyset arrives, one real `item_summary/search` body should be diffed against
+them before the panel is trusted — see [[Environment]].
+
+### The budget, honestly
+
+The free Browse tier is **5,000 calls per day**. The rules that keep us nowhere near it:
+
+- **A snapshot lasts 24 hours.** The worst realistic case is one call per figure page whose
+  snapshot has gone stale, per day. With 19 public figures that is **19 calls a day** even if
+  every one of them is viewed; the catalog is 247 rows, so the absolute ceiling if every
+  catalogued figure somehow got a page is still under 5% of the allowance.
+- **The wishlist can never trigger a lookup.** 232 cards × one call each would spend the entire
+  day's allowance in twenty-two page views. `listPriceChips()` reads the cache and stops; the
+  rule is written down and tested as `mayShowPriceChip()` rather than left as an absent `await`.
+- **One attempt, no retries** (the same rule the UPCitemdb client follows) and a **5-second
+  budget for the whole refresh**, token included. A 429 answered by trying again is how a quota
+  disappears in an afternoon.
+- **The token is cached in module scope** until it expires, so it costs one round trip per
+  serverless instance rather than one per page view. `parseTokenResponse` shaves a minute off
+  eBay's two-hour lifetime, so a token cannot expire between the check and the request.
+
+### What the page does with a failure
+
+`decideMarketFetch()` is pure and tested, and the case worth stating is the last one: **a stale
+snapshot is still served**. If eBay is down, `≈$24 · CHECKED 3D AGO · EBAY DID NOT ANSWER` is a
+better answer than a blank panel, and the age is on screen so nobody mistakes it for live. A
+missing snapshot with a failed fetch renders **nothing at all** — there is no honest number to
+put there, and a public showcase does not narrate its own integrations. Nothing in this path
+throws: it runs inside the render of `/figure/[slug]`, and a rejected promise would replace a
+figure's page with an error boundary because a price could not be loaded.
+
 ## External data sources
 
 | Source                                                | Role                                                 | Status                                     |
@@ -231,7 +352,8 @@ shared. The rules that keep it inside the budget are load-bearing, not hygiene:
 | pops.today                                            | catalog + UPC + box art (27k pops, 418 spider pages) | permission email sent 2026-08-06, no reply |
 | Checklist sites (funkypriceguide 117, Pop Shop Guide) | plan-B catalog seed                                  | **seeded (plan B)** — 240 rows, ADR-008    |
 | UPCitemdb (free 100 req/day)                          | scan-time UPC fallback                               | **live (phase 7)** — 1 call/scan, no key   |
-| eBay Browse API (free 5k req/day)                     | live prices                                          | optional, phase 8                          |
+| eBay Browse API (free 5k req/day)                     | live prices                                          | **built, gated off (phase 8)** — no keys   |
+| Natural Earth 110m land (CC0)                         | the SIGHTINGS MAP's landmass                         | **vendored (phase 8)** — derived once      |
 | hobbyDB / Funko official                              | —                                                    | ruled out (ToS / no API)                   |
 
 ## Catalog seed

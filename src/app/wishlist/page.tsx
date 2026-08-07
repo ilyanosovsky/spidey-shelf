@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { WishlistScreen } from "@/components/wishlist-screen";
 import { listWishlist } from "@/lib/catalog-queries";
+import { listPriceChips } from "@/lib/ebay/market";
 import { parseWishlistFilter } from "@/lib/wishlist";
 
 /**
@@ -24,7 +25,10 @@ export default async function WishlistPage({
 }) {
   const { cat } = await searchParams;
   const filter = parseWishlistFilter(cat);
-  const figures = await listWishlist();
+  // `listPriceChips()` is a cache read and can never trigger an eBay call — 232 cards is the
+  // exact page that would burn the free tier. Without keys it returns an empty map without
+  // querying at all, so this costs nothing on the current deployment.
+  const [figures, prices] = await Promise.all([listWishlist(), listPriceChips()]);
 
-  return <WishlistScreen figures={figures} filter={filter} />;
+  return <WishlistScreen figures={figures} filter={filter} prices={prices} />;
 }

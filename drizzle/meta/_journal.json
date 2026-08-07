@@ -29,6 +29,13 @@
       "when": 1786081865189,
       "tag": "0003_review_note",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786086106710,
+      "tag": "0004_price_snapshots",
+      "breakpoints": true
     }
   ]
 }

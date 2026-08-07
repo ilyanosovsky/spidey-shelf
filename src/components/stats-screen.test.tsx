@@ -44,11 +44,33 @@ describe("StatsScreen", () => {
     expect(codes).toHaveLength(4);
   });
 
+  it("pins the cities on the map, between the radar and the years", () => {
+    render(<StatsScreen progress={PROGRESS} entries={SHELF_FIXTURE} />);
+
+    const map = screen.getByText("SIGHTINGS MAP").closest("section");
+    expect(within(map as HTMLElement).getByText("4 CITIES · 5 SIGHTINGS")).toBeInTheDocument();
+
+    const cities = within(map as HTMLElement)
+      .getAllByRole("listitem")
+      .map((node) => node.textContent);
+    expect(cities[0]).toContain("MOSCOW");
+    expect(cities).toHaveLength(4);
+  });
+
+  it("tells a phone how to install the shelf, without pretending to be able to do it", () => {
+    render(<StatsScreen progress={PROGRESS} entries={SHELF_FIXTURE} />);
+
+    expect(screen.getByText(/ADD TO HOME SCREEN/)).toBeInTheDocument();
+    // No install button anywhere: iOS has no `beforeinstallprompt` to hang one on.
+    expect(screen.queryByRole("button", { name: /INSTALL/i })).not.toBeInTheDocument();
+  });
+
   it("does not crash on an empty shelf", () => {
     render(<StatsScreen progress={PROGRESS} entries={[]} />);
 
     expect(screen.getByText("No dated sightings yet.")).toBeInTheDocument();
     expect(screen.getByText("No places logged yet.")).toBeInTheDocument();
+    expect(screen.getByText("Nothing pinned to the map yet.")).toBeInTheDocument();
   });
 });
 

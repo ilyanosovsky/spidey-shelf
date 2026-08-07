@@ -4,12 +4,15 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 
 import { LCDCounter } from "@/components/lcd-counter";
+import { MarketSignal } from "@/components/market-signal";
 import { PixelButtonLink } from "@/components/pixel-button";
 import { PixelFrame } from "@/components/pixel-frame";
 import { categoryAccent, PixelSpiderArt } from "@/components/pixel-spider-art";
 import { PublicNav } from "@/components/public-nav";
 import { ToothedBanner } from "@/components/toothed-banner";
 import { figureCategoryLabel } from "@/lib/categories";
+import { getMarketPanel } from "@/lib/ebay/market";
+import { MARKET_COPY } from "@/lib/ebay/snapshot";
 import { countryFlagEmoji, formatPlace, formatPopNumber, formatSightingDate } from "@/lib/format";
 import { findShelfNeighbours, hasLeftTheShelf, type PublicShelfEntry } from "@/lib/showcase";
 import { listPublicShelf } from "@/lib/showcase-queries";
@@ -63,8 +66,21 @@ export default async function FigurePage({ params }: { params: Promise<{ slug: s
   const gone = hasLeftTheShelf(current);
   const variants = (current.variantFlags ?? []).filter(Boolean);
 
+  // Awaited inside the render: the panel is part of the page, not a hole that fills in later.
+  // Without `EBAY_CLIENT_ID`/`EBAY_CLIENT_SECRET` this returns `null` before it touches the
+  // database, so the key-less deployment issues no extra query and no request.
+  const market = await getMarketPanel({
+    slug: current.slug,
+    name: current.name,
+    popNumber: current.popNumber,
+  });
+
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-5 p-4 sm:p-6">
+    <main
+      id="main"
+      tabIndex={-1}
+      className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-5 p-4 sm:p-6"
+    >
       <PublicNav pathname={`/figure/${current.slug}`} />
 
       <PixelFrame as="header" className="p-5" accent={accent}>
@@ -95,7 +111,7 @@ export default async function FigurePage({ params }: { params: Promise<{ slug: s
                 {figureCategoryLabel(current.category)}
               </span>
               {current.exclusivity ? (
-                <span className="font-pixel rounded border-2 border-blue-frame px-2 py-1 text-[10px] leading-relaxed tracking-wider text-blue-frame">
+                <span className="font-pixel rounded border-2 border-blue-frame px-2 py-1 text-[10px] leading-relaxed tracking-wider text-cream/80">
                   {current.exclusivity.toUpperCase()}
                 </span>
               ) : null}
@@ -128,7 +144,7 @@ export default async function FigurePage({ params }: { params: Promise<{ slug: s
         <PixelFrame className="mt-4 p-5">
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <dt className="font-pixel text-[10px] leading-relaxed tracking-wider text-blue-frame">
+              <dt className="font-pixel text-[10px] leading-relaxed tracking-wider text-cream/80">
                 PLACE
               </dt>
               <dd className="mt-2 text-base text-cream">
@@ -139,7 +155,7 @@ export default async function FigurePage({ params }: { params: Promise<{ slug: s
               </dd>
             </div>
             <div>
-              <dt className="font-pixel text-[10px] leading-relaxed tracking-wider text-blue-frame">
+              <dt className="font-pixel text-[10px] leading-relaxed tracking-wider text-cream/80">
                 DATE
               </dt>
               <dd className="mt-2">
@@ -165,6 +181,17 @@ export default async function FigurePage({ params }: { params: Promise<{ slug: s
           )}
         </PixelFrame>
       </section>
+
+      {market ? (
+        <section aria-labelledby="market-signal">
+          <ToothedBanner as="h2" className="max-w-[260px]">
+            <span id="market-signal">{MARKET_COPY.heading}</span>
+          </ToothedBanner>
+          <div className="mt-4">
+            <MarketSignal panel={market} />
+          </div>
+        </section>
+      ) : null}
 
       <nav aria-label="Nearby sightings" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <NeighbourLink entry={previous} direction="newer" />

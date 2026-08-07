@@ -74,7 +74,7 @@ describe("ShelfScreen", () => {
     render(<ShelfScreen entries={SHELF_FIXTURE} progress={PROGRESS} filter="all" />);
 
     expect(screen.getByRole("heading", { name: "NEW SIGHTINGS" })).toBeInTheDocument();
-    expect(screen.getAllByTitle("New sighting").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("New sighting").length).toBeGreaterThan(0);
     expect(
       screen.getAllByText(/LATEST SIGHTING: PETER B\. PARKER & MAYDAY #1239/).length,
     ).toBeGreaterThan(0);

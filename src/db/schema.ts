@@ -146,6 +146,45 @@ export const ownedFigures = pgTable(
 );
 
 /**
+ * What eBay said a figure was going for, last time anybody looked (Phase 8).
+ *
+ * A cache, not a record: one row per catalog figure, overwritten on every refresh, and
+ * droppable without losing anything the collection is about. That is why it is the only
+ * table here with `ON DELETE CASCADE` — a catalog row's prices are meaningless without the
+ * catalog row, unlike `owned_figures`, where the memory of owning a figure outlives it.
+ *
+ * The unique constraint on `reference_figure_id` is what makes the write an upsert
+ * (`ON CONFLICT … DO UPDATE`) rather than an insert plus a cleanup job.
+ *
+ * Prices are integer cents, never floats: `12.99` cannot be represented in binary floating
+ * point, and a market signal that drifts by a cent per round trip is a bug report waiting to
+ * happen. Currency is `varchar(3)` rather than `char(3)` for the reason `acquired_country` is
+ * `varchar(2)` — Postgres' `char` blank-pads, and the padding bites on every comparison.
+ */
+export const priceSnapshots = pgTable(
+  "price_snapshots",
+  {
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    referenceFigureId: uuid("reference_figure_id")
+      .notNull()
+      .unique()
+      .references(() => referenceFigures.id, { onDelete: "cascade" }),
+    /** ISO 4217, uppercase. */
+    currency: varchar("currency", { length: 3 }).notNull(),
+    /** Cheapest active listing in the sample, in cents. */
+    minCents: integer("min_cents"),
+    /** Median of the sampled active listings, in cents — the headline number. */
+    medianCents: integer("median_cents"),
+    /** How many priced listings the median was computed over. */
+    listingCount: integer("listing_count").notNull().default(0),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [index("price_snapshots_fetched_at_idx").on(table.fetchedAt)],
+);
+
+/**
  * `reference_figures LEFT JOIN owned_figures` → `is_owned`, `owned_count`.
  *
  * One definition powers the public OWNED / NOT OWNED verdict, the stats counters and the
@@ -181,4 +220,6 @@ export type ReferenceFigure = typeof referenceFigures.$inferSelect;
 export type NewReferenceFigure = typeof referenceFigures.$inferInsert;
 export type OwnedFigure = typeof ownedFigures.$inferSelect;
 export type NewOwnedFigure = typeof ownedFigures.$inferInsert;
+export type PriceSnapshot = typeof priceSnapshots.$inferSelect;
+export type NewPriceSnapshot = typeof priceSnapshots.$inferInsert;
 export type CatalogRow = typeof catalogWithOwnership.$inferSelect;

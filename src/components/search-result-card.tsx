@@ -66,7 +66,7 @@ export function SearchResultCard({ result }: { result: CatalogSearchResult }) {
           </div>
 
           {href ? (
-            <p className="font-pixel mt-3 text-[10px] leading-relaxed tracking-wider text-blue-frame">
+            <p className="font-pixel mt-3 text-[10px] leading-relaxed tracking-wider text-cream/80">
               OPEN THE SIGHTING LOG →
             </p>
           ) : null}
@@ -93,7 +93,7 @@ export function SearchResultCard({ result }: { result: CatalogSearchResult }) {
 
 const CHIP_TONES = {
   category: "border-cream/40 text-cream/80",
-  exclusive: "border-blue-frame text-blue-frame",
+  exclusive: "border-blue-frame text-cream/80",
   variant: "border-amber text-amber",
 } as const;
 

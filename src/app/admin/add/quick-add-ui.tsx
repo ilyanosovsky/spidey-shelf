@@ -55,7 +55,7 @@ export function QuickAddRail({ step }: { step: QuickAddStep }) {
           <li
             key={entry.step}
             aria-current={isActive ? "step" : undefined}
-            className={`font-pixel rounded border-2 px-2 py-2 text-center text-[8px] leading-relaxed tracking-wider ${
+            className={`font-pixel rounded border-2 px-2 py-2 text-center text-[10px] leading-relaxed tracking-wider ${
               isActive ? "border-amber bg-amber text-ink-px" : "border-blue-frame text-cream/60"
             }`}
           >
@@ -70,7 +70,11 @@ export function QuickAddRail({ step }: { step: QuickAddStep }) {
 /** The screen body: one column, 375px-first, primary buttons within thumb reach at the end. */
 export function QuickAddScreen({ children }: { children: ReactNode }) {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 p-4 sm:p-6">
+    <main
+      id="main"
+      tabIndex={-1}
+      className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-5 p-4 sm:p-6"
+    >
       {children}
     </main>
   );
@@ -92,7 +96,7 @@ export function Chip({
 }) {
   return (
     <span
-      className={`font-pixel inline-block rounded border-2 px-2 py-1 text-[8px] leading-relaxed tracking-wider uppercase ${CHIP_TONES[tone]}`}
+      className={`font-pixel inline-block rounded border-2 px-2 py-1 text-[10px] leading-relaxed tracking-wider uppercase ${CHIP_TONES[tone]}`}
     >
       {children}
     </span>

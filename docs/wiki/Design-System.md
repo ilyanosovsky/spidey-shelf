@@ -139,7 +139,42 @@ persisted) · `IS IT ONE OF THESE?` · `MATCHED BY BARCODE` ·
 `LOOKUP BUSY — TYPE THE NUMBER?`. The notices travel in the URL as codes, so nothing else
 may ever render from it.
 
-Still to build: MapMarker (pixel spider, green/red/gray) · Mascot (own sprite).
+Added in Phase 8 (map, prices, PWA):
+
+| Component         | Props                       | Notes                                                                                                                                                                                                         |
+| ----------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SightingsMap`    | `data` (`SightingsMapData`) | the travel map on `/stats`: navy ground, 30° graticule, Natural Earth landmass, 5×5 pixel spiders on the cities. `viewBox` is the crop, computed from the markers; SVG is `aria-hidden`                       |
+| `SightingsLegend` | `data`                      | flag · city · count under the map, and the accessible version of it. **Deliberately not links** — there are no city pages, and a link that goes nowhere is a worse promise than text. Plus the UNCHARTED line |
+| `MarketSignal`    | `panel` (`MarketPanel`)     | the LCD price panel on `/figure/[slug]`: `~$25 · 25 LISTINGS`, `MIN $19`, `SEE ON EBAY ↗`, the fetch age, and the fine print. Renders only when there is a number; never explains its own absence             |
+| `PriceChip`       | `label`                     | the wishlist's amber `~$25`. Appears only where a figure page has already paid for the lookup and the answer is still fresh — the wishlist never triggers one                                                 |
+
+The map's marker is the `MapMarker` the brief asked for, arrived at from the other direction:
+not a spider in a round frame with a status colour, but the shelf's own **category** hue on a
+dark plate, so a pin means the same thing a card border means. Sizes are in **degrees, not
+pixels**, so a marker is the same share of the panel at 375px and at 1280px.
+
+**One sprite, three sizes.** The 16×16 spider's geometry left `PixelSpiderArt` in Phase 8 and
+lives in `src/lib/spider-sprite.ts`. The card art, the map's 5×5 simplification and the PWA
+icons all read from it, because two hand-drawn copies of one animal drift the first time
+somebody straightens a leg.
+
+### App icons and the favicon (Phase 8)
+
+`npm run icons:generate` (`scripts/generate-icons.ts`, sharp) draws them all from that same
+grid — coral spider, cream eyes, `--navy-deep` ground:
+
+| File                                  | What                                                                           |
+| ------------------------------------- | ------------------------------------------------------------------------------ |
+| `public/icons/icon-{192,512}.png`     | `purpose: "any"` — edge to edge, with the gadget's blue frame                  |
+| `public/icons/maskable-{192,512}.png` | `purpose: "maskable"` — no frame, sprite at 50% so no launcher crop eats a leg |
+| `public/apple-touch-icon.png`         | 180px; iOS masks to a rounded rect and never a circle, so the frame stays      |
+| `src/app/favicon.ico`                 | 16/32/48 PNG payloads in one container, replacing create-next-app's default    |
+
+The PNGs are **committed**, not built: a favicon that needs a native module to exist is a
+deploy that fails on someone else's machine at the worst moment. The script stays for
+regeneration.
+
+Still to build: Mascot (own sprite).
 
 The admin (`src/app/admin/ui.tsx`) re-exports `PixelButton`'s classes so the whole device
 has one button; its `Panel`, `LcdStat` and chips stay admin-sized on purpose.
@@ -165,7 +200,62 @@ component: `NEW SIGHTING` · `NUMBER OR NAME` · `SCAN THE CATALOG` ·
 codes with fixed wording (`DATE MUST BE YYYY-MM-DD`, `PICK ONE OF THE FOUR CATEGORIES`, …) —
 they travel in the URL, so nothing else may ever render from it.
 
+Phase 8 wording lives in `MARKET_COPY` (`src/lib/ebay/snapshot.ts`) and
+`sightingsMapCaption()` (`src/lib/sightings-map.ts`): `MARKET SIGNAL` · `SEE ON EBAY` ·
+`Active listings, not sold prices. eBay US, Buy It Now.` · `~$25 · 25 LISTINGS` · `MIN $19` ·
+`CHECKED 6H AGO` · `EBAY DID NOT ANSWER` · `SIGHTINGS MAP` · `9 CITIES · 19 SIGHTINGS` ·
+`UNCHARTED SECTORS:` · `NO PLACES LOGGED YET` · and the install hint,
+`ADD TO HOME SCREEN — SHARE ↑ THEN ADD TO HOME SCREEN, AND THE SHELF OPENS FULL-SCREEN.`
+
+Three of those are doing real work rather than decorating:
+
+- the **`~`** is the median admitting it is a median of twenty-five strangers' asking prices —
+  which is also why `formatMoney()` rounds to whole units; `$23.99` would claim a precision the
+  number does not have;
+- **"active listings, not sold prices"** is the difference between what people want for a Pop
+  and what one actually goes for, and every price guide that omits it is lying;
+- **the age** is what stops a cached number reading as a live one.
+
 ## Accessibility
 
-Touch targets ≥ 44px; contrast: cream-on-coral only bold/large; respect
-`prefers-reduced-motion` (ticker & mascot animations off).
+Touch targets ≥ 44px; pixel font ≥ 10px; contrast: cream-on-coral only bold/large; respect
+`prefers-reduced-motion` (ticker & scanline animations off by name, not merely shortened).
+
+### The focus ring
+
+`FOCUS_RING` in `src/components/pixel-button.tsx` — `focus-visible:outline-2
+focus-visible:outline-offset-2 focus-visible:outline-amber` — is the one focus treatment on the
+site, shared by every button variant, the LCD `fieldClass`, the nav, the tabs, the cards and the
+outbound links. Amber because it is the one hue on this palette legible against every background
+the site has. Before Phase 8 the buttons had only an `:active` pressed state, so a keyboard user
+got the browser default outline — on a 2px ink-bordered dark button, close to invisible.
+
+The category and status pickers are labels wrapping `sr-only` radios, so they carry
+`has-[:focus-visible]:outline-*` instead: the focus lands on an input nobody can see, and the
+ring has to appear on the thing that looks like the control.
+
+A `SKIP TO CONTENT` link sits first in `<body>`, `sr-only` until focused. Every `<main>` on the
+site carries `id="main"` and `tabIndex={-1}` — without the tabindex the jump moves the scroll
+position and leaves focus behind, which is the failure mode that makes skip links useless.
+
+### Contrast, measured (Phase 8 audit)
+
+| Pair                        | Ratio       | Verdict                                                    |
+| --------------------------- | ----------- | ---------------------------------------------------------- |
+| cream on coral              | **3.00**    | ❌ fixed — `danger` buttons now use ink (5.75)             |
+| ink on coral                | 5.75        | ✅ the coral pairing everywhere (banner, stamp, button)    |
+| ink on amber                | 10.41       | ✅                                                         |
+| ink on green                | 6.75        | ✅                                                         |
+| cream on navy-deep / panel  | 14.6 / 10.9 | ✅                                                         |
+| cream/70 on navy-deep       | 7.77        | ✅ the secondary-prose colour                              |
+| amber on navy-deep          | 8.79        | ✅                                                         |
+| lcd-glow on lcd-bg          | 5.87        | ✅ — the LCD caption was `/70` (3.71) and is now full glow |
+| **blue-frame on navy-deep** | **4.42**    | ❌ as text — a near miss, and a miss                       |
+
+`--blue-frame` is now **a frame colour, not a text colour**: 4.42 clears the 3∶1 bar for
+borders and UI shapes and fails the 4.5 bar for text, so its eleven text uses became
+`text-cream/80`. The border stays blue, which is where the accent was doing its work anyway.
+
+`--coral` on navy (4.86) and `--pop-green` on navy (5.70) remain fine as text; both are only
+ever used on `--navy-deep`, never on `--navy-panel` (3.61 / 4.24), and that is worth keeping
+true when a new panel is added.

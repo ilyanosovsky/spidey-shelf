@@ -36,7 +36,11 @@ export function SearchScreen({
   const searched = parsed.kind !== "empty";
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-5 p-4 sm:p-6">
+    <main
+      id="main"
+      tabIndex={-1}
+      className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-5 p-4 sm:p-6"
+    >
       <PublicNav pathname="/search" />
 
       <PixelFrame as="header" className="p-4 sm:p-5">
@@ -59,8 +63,9 @@ export function SearchScreen({
             autoComplete="off"
             placeholder="1450"
             // Same field as the admin console: LCD green on LCD dark, 16px so iOS Safari
-            // does not zoom the page on focus.
-            className="w-full rounded border-2 border-ink-px bg-lcd-bg px-3 py-3 text-base text-lcd-glow caret-lcd-glow outline-none placeholder:text-lcd-glow/40 focus-visible:border-blue-frame"
+            // does not zoom the page on focus, and the amber focus ring from every other
+            // control on the site (`outline-none` alone left it marked by a border shade).
+            className="w-full rounded border-2 border-ink-px bg-lcd-bg px-3 py-3 text-base text-lcd-glow caret-lcd-glow placeholder:text-lcd-glow/40 focus-visible:border-blue-frame focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber"
           />
           <PixelButton type="submit" variant="primary">
             CHECK THE SHELF

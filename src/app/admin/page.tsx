@@ -25,7 +25,11 @@ export default async function AdminPage() {
   const remaining = Math.max(stats.peterTotal - stats.peterOwned, 0);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-5 p-4 sm:p-6">
+    <main
+      id="main"
+      tabIndex={-1}
+      className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-5 p-4 sm:p-6"
+    >
       <Panel>
         <h1 className="font-pixel text-center text-lg leading-relaxed text-cream">
           VAULT
@@ -41,7 +45,7 @@ export default async function AdminPage() {
           />
         </div>
 
-        <p className="font-pixel mt-4 text-center text-[8px] leading-relaxed text-amber">
+        <p className="font-pixel mt-4 text-center text-[10px] leading-relaxed text-amber">
           {remaining} SPIDERS STILL OUT THERE
         </p>
 
@@ -68,7 +72,7 @@ export default async function AdminPage() {
           </PixelLink>
         </div>
 
-        <p className="font-pixel mt-6 text-center text-[8px] text-lcd-glow/70">
+        <p className="font-pixel mt-6 text-center text-[10px] text-lcd-glow/70">
           SESSION: {session.sub}
         </p>
 
