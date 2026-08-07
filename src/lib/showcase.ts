@@ -39,6 +39,12 @@ export interface PublicShelfEntry {
   imagePath: string | null;
   /** `mine` / `not_mine_anymore`; NULL rows predate the status column. */
   status: OwnedStatus | null;
+  /**
+   * How many copies of this figure are on the shelf (Phase 11 — the FINANCES total
+   * multiplies by it). Never rendered as a number: two boxes are one figure everywhere a
+   * count is shown, which is what keeps the grid and the counters honest. NULL means one.
+   */
+  quantity: number | null;
   /** The owner's staging switch. Only `true` rows are ever rendered. */
   isPublic: boolean;
   /** ISO `YYYY-MM-DD`. */

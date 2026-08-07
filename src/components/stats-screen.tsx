@@ -1,3 +1,4 @@
+import { type CollectionFinances } from "@/lib/finances";
 import { buildSightingsMap } from "@/lib/sightings-map";
 import {
   acquisitionCountries,
@@ -7,6 +8,7 @@ import {
 } from "@/lib/stats";
 import { type PublicShelfEntry } from "@/lib/showcase";
 
+import { FinancesPanel } from "./finances-panel";
 import { LCDCounter } from "./lcd-counter";
 import { MapModal } from "./map-modal";
 import { PixelFrame } from "./pixel-frame";
@@ -16,19 +18,26 @@ import { ToothedBanner } from "./toothed-banner";
 import { WebRadar } from "./web-radar";
 
 /**
- * The collector's dashboard: how far in, how it went, and where it came from.
+ * The collector's dashboard: how far in, how it went, what it is worth, and where it came from.
  *
- * Four readings of the same 247-row catalog and 19-row shelf, none of them hardcoded — every
+ * Five readings of the same 247-row catalog and 19-row shelf, none of them hardcoded — every
  * number below is computed from what is in the database on this request, so re-seeding the
  * catalog moves them all at once.
  */
 export function StatsScreen({
   progress,
   entries,
+  finances = null,
   isAdmin = false,
 }: {
   progress: readonly CategoryProgress[];
   entries: readonly PublicShelfEntry[];
+  /**
+   * The FINANCES section (Phase 11), or `null` for "render nothing" — no eBay keys, no
+   * cached prices, or an empty shelf. Read from `price_snapshots` by the page; this screen
+   * never fetches a price and neither does anything under it.
+   */
+  finances?: CollectionFinances | null;
   /** A verified admin session — the only thing it changes here is the nav's fifth tab. */
   isAdmin?: boolean;
 }) {
@@ -56,6 +65,14 @@ export function StatsScreen({
           ))}
         </div>
       </PixelFrame>
+
+      {/*
+       * FINANCES sits directly under the counters and above the radar: it is the second
+       * question anybody asks about a collection ("how far in?" then "what is it worth?"),
+       * and both are LCD numbers about the whole shelf, while everything below is a picture
+       * of one slice of it.
+       */}
+      {finances ? <FinancesPanel finances={finances} /> : null}
 
       <section aria-labelledby="web-radar">
         <ToothedBanner as="h2" className="max-w-[240px]">

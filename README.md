@@ -26,7 +26,8 @@ plaques, hard 2px shadows. Dark theme only, on purpose.
 | **Barcode scanner**        | zxing-wasm in the browser. The catalog shipped with **zero** barcodes, so a scan is not a lookup but an enrichment loop: catalog → one UPCitemdb call → a guess → the owner confirms → the code is written onto that row, and the next scan of that box is free                             |
 | **Box art**                | a deterministic pixel spider per figure by default; the owner can upload real box art per figure, normalized in the browser to 800×800 WebP so the grid keeps one look                                                                                                                      |
 | **PWA**                    | manifest, real pixel-spider icons, `appleWebApp` so Add to Home Screen produces an app rather than a bookmark                                                                                                                                                                               |
-| **eBay prices**            | a MARKET SIGNAL panel per figure — `~$median · N listings` from live eBay Browse data, cached 24h per figure in Postgres, with an honest "active listings, not sold prices" fine print. Keys-optional: a deployment without eBay credentials renders nothing and calls nothing              |
+| **eBay prices**            | a MARKET SIGNAL panel per figure — `~$median · N listings` from live eBay Browse data, cached per figure in Postgres, with an honest "active listings, not sold prices" fine print. Keys-optional: a deployment without eBay credentials renders nothing and calls nothing                  |
+| **Finances**               | what the shelf is worth: a FINANCES block on `/stats` (total, dearest, cheapest, and how many figures the total actually covers) and a `~$24` chip per shelf card. **No page ever fetches a price** — a nightly Vercel cron refreshes the cache, and every page reads it and stops          |
 
 ## Stack
 
@@ -76,6 +77,7 @@ npm run dev
 | `ADMIN_PASSWORD_HASH`                   | admin login     | `node scripts/hash-password.mjs 'your password'`. **Escape every `$` as `\$` in `.env`** — Next.js parses env files with dotenv-expand and silently eats most of a bcrypt hash otherwise |
 | `UPLOADTHING_TOKEN`                     | box-art uploads | the **v7** token. `UPLOADTHING_SECRET` is v6 and is not read by anything                                                                                                                 |
 | `EBAY_CLIENT_ID` / `EBAY_CLIENT_SECRET` | live prices     | optional, both or neither. Blank ⇒ the feature does not exist at runtime                                                                                                                 |
+| `CRON_SECRET`                           | the price sweep | `openssl rand -base64 32`. Vercel attaches it to the scheduled call by itself; blank or missing ⇒ the endpoint answers 401 to everybody, which is the safe direction                     |
 
 Full details, the runbook and the per-service gotchas: **[docs/wiki/Environment.md](docs/wiki/Environment.md)**.
 

@@ -12,6 +12,30 @@ import { type MarketSignal } from "./parse";
 /** A day. Funko prices move on release news and conventions, not on the hour. */
 export const PRICE_SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * How old a snapshot has to be before the nightly sweep pays to replace it (Phase 11).
+ *
+ * **Half the TTL, and that gap is the whole point.** The cron runs once a day, and Vercel
+ * schedules a Hobby cron anywhere inside a one-hour window — so consecutive runs can be 25
+ * hours apart. A sweep that refreshed only what is already stale would leave every snapshot
+ * expired for the length of that drift; at twelve hours, a daily run always refreshes
+ * everything it looks at and the cache never gets a chance to expire between sweeps.
+ */
+export const PRICE_REFRESH_AFTER_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * How old a snapshot may be and still be **shown** on a page that cannot refresh it
+ * (Phase 11): the shelf's price chips, the wishlist's, and the FINANCES totals.
+ *
+ * Two days rather than one, for the same drift: a figure page can notice a stale price and
+ * fix it inside its own render, but the shelf and `/stats` read the cache and stop. Holding
+ * them to the refresh TTL would blank every chip and the whole FINANCES section for the
+ * minutes — or the hours, if a sweep fails — between a snapshot expiring and the cron
+ * replacing it. One missed night of slack is the difference between "yesterday's number" and
+ * "no number", and yesterday's number is the honest one anyway: the panel says `~`.
+ */
+export const PRICE_DISPLAY_TTL_MS = 2 * PRICE_SNAPSHOT_TTL_MS;
+
 /** What the database holds. `fetchedAt` is the only thing staleness depends on. */
 export interface StoredSnapshot extends MarketSignal {
   fetchedAt: Date;

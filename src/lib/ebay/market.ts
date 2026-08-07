@@ -1,21 +1,27 @@
 import "server-only";
 
+import { collectionFinances, type CollectionFinances } from "@/lib/finances";
+import { type PublicShelfEntry } from "@/lib/showcase";
+
 import { fetchMarketSignal } from "./client";
 import { isEbayConfigured } from "./config";
 import { type MarketSignal } from "./parse";
 import {
   figureIdForSlug,
   listFreshPriceSnapshots,
+  listRefreshTargets,
   readPriceSnapshot,
   upsertPriceSnapshot,
 } from "./queries";
 import { ebaySearchQuery, ebaySearchUrl } from "./query";
+import { CRON_BUDGET_MS, refreshTargets, type RefreshSummary } from "./refresh";
 import {
   decideMarketFetch,
   formatMoney,
   formatSnapshotAge,
   mayShowPriceChip,
   snapshotAgeMs,
+  PRICE_DISPLAY_TTL_MS,
   type StoredSnapshot,
 } from "./snapshot";
 
@@ -121,13 +127,54 @@ export async function getMarketPanel({
 export async function listPriceChips(now: number = Date.now()): Promise<Map<string, string>> {
   if (!isEbayConfigured()) return new Map();
 
-  const fresh = await listFreshPriceSnapshots(now);
+  const fresh = await listFreshPriceSnapshots(now, PRICE_DISPLAY_TTL_MS);
   const chips = new Map<string, string>();
 
   for (const [slug, snapshot] of fresh) {
-    if (!mayShowPriceChip(snapshot, now)) continue;
+    if (!mayShowPriceChip(snapshot, now, PRICE_DISPLAY_TTL_MS)) continue;
     chips.set(slug, `~${formatMoney(snapshot.medianCents, snapshot.currency)}`);
   }
 
   return chips;
+}
+
+/**
+ * What the shelf is worth — the FINANCES section on `/stats` (Phase 11).
+ *
+ * A **cache read and a sum**, and it could not be anything else: `/stats` renders every
+ * owned figure, so a page that refreshed what it found stale would spend up to nineteen eBay
+ * calls per visitor. The nightly cron is what keeps these numbers current; this function
+ * reads what the cron left behind, exactly like the wishlist's chips do.
+ *
+ * `null` without keys, without snapshots and without a shelf alike — see
+ * `collectionFinances()` for why all three render the same nothing.
+ */
+export async function getCollectionFinances(
+  entries: readonly PublicShelfEntry[],
+  now: number = Date.now(),
+): Promise<CollectionFinances | null> {
+  if (!isEbayConfigured()) return null;
+
+  const prices = await listFreshPriceSnapshots(now, PRICE_DISPLAY_TTL_MS);
+  return collectionFinances(entries, prices);
+}
+
+/**
+ * The nightly sweep: refresh every stale price on the shelf, once, and report counts.
+ *
+ * The only thing that spends an eBay call outside a figure page, and the reason the shelf
+ * and `/stats` can print prices at all. It is deliberately thin — the door is
+ * `isCronAuthorized()`, the loop and its rules are `refreshTargets()`, and both are pure and
+ * tested; what happens here is the wiring of the real client and the real cache to them.
+ */
+export async function refreshStalePrices(
+  budgetMs: number = CRON_BUDGET_MS,
+): Promise<RefreshSummary> {
+  const targets = await listRefreshTargets();
+
+  return refreshTargets(
+    targets,
+    { fetch: fetchMarketSignal, save: upsertPriceSnapshot },
+    { budgetMs },
+  );
 }

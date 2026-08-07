@@ -31,11 +31,20 @@ export function ShelfScreen({
   entries,
   progress,
   filter,
+  prices,
   isAdmin = false,
 }: {
   entries: readonly PublicShelfEntry[];
   progress: ShelfProgress;
   filter: ShelfFilter;
+  /**
+   * `slug → "~$24"` out of the price cache (Phase 11), empty without eBay keys.
+   *
+   * A **read**, never a fetch: the nightly cron fills `price_snapshots` and this grid spends
+   * it. Twenty cards × one Browse call per visitor is the arithmetic that made the cron the
+   * only honest way to put a price on the shelf at all.
+   */
+  prices?: ReadonlyMap<string, string>;
   /** A verified admin session — the only thing it changes here is the nav's fifth tab. */
   isAdmin?: boolean;
 }) {
@@ -93,7 +102,7 @@ export function ShelfScreen({
           <ul className="mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2">
             {ribbon.map((entry) => (
               <li key={entry.slug} className="w-40 shrink-0 snap-start sm:w-48">
-                <FigureCard entry={entry} isNew />
+                <FigureCard entry={entry} isNew price={prices?.get(entry.slug)} />
               </li>
             ))}
           </ul>
@@ -134,7 +143,11 @@ export function ShelfScreen({
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {visible.map((entry) => (
               <li key={entry.slug}>
-                <FigureCard entry={entry} isNew={ribbonSlugs.has(entry.slug)} />
+                <FigureCard
+                  entry={entry}
+                  isNew={ribbonSlugs.has(entry.slug)}
+                  price={prices?.get(entry.slug)}
+                />
               </li>
             ))}
           </ul>

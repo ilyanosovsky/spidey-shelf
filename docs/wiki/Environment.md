@@ -128,10 +128,51 @@ zero parser changes.
 > `price_snapshots` row. If eBay ever changes the shapes, the panel degrades to nothing and
 > the fix starts by diffing one real body against `src/lib/ebay/parse.test.ts`.
 
-The free tier is **5,000 Browse calls per day**, and the app is nowhere near it by design: a
-24-hour cache in `price_snapshots`, a refresh only from a figure page, one attempt with no
-retries, and a wishlist that reads the cache but can never fill it. See [[Architecture]] for the
-arithmetic.
+The free tier is **5,000 Browse calls per day**, and the app is nowhere near it by design: the
+cache in `price_snapshots`, one nightly sweep over the 19 owned figures, one attempt with no
+retries, and every other page reading the cache without ever being able to fill it. See
+[[Architecture]] for the arithmetic.
+
+### Needed from Phase 11 (the nightly price sweep)
+
+| Var           | What                                                           | Where                                       |
+| ------------- | -------------------------------------------------------------- | ------------------------------------------- |
+| `CRON_SECRET` | the bearer token that authenticates `/api/cron/refresh-prices` | local `.env` ✅ · **Vercel — owner action** |
+
+> ⚠️ **This is the one manual step of Phase 11.** Add `CRON_SECRET` to Vercel (Production —
+> Preview too if you want to test it there) and redeploy. **Vercel attaches it by itself**:
+> whenever that variable exists on the project, every scheduled invocation carries
+> `Authorization: Bearer $CRON_SECRET`, so there is nothing to configure on the cron side and
+> no header to set by hand. Until it is set on Vercel, the schedule fires and the endpoint
+> answers **401** — prices simply stop being refreshed in production; nothing else on the site
+> is affected, which is exactly why this failure is easy to miss.
+
+Generate one the same way as the session secret: `openssl rand -base64 32`. It is alphanumeric
+plus `+/=`, so no `$`-escaping worry. It is already in local `.env`, which is what let the
+cache be seeded by hand before the first scheduled run.
+
+**The schedule lives in `vercel.json`**, not in the dashboard:
+
+```json
+{ "crons": [{ "path": "/api/cron/refresh-prices", "schedule": "0 6 * * *" }] }
+```
+
+Two things about that file are worth knowing before it gets edited:
+
+- **Hobby allows daily crons only** (one run per job per day, and a small number of jobs). A
+  finer schedule is rejected at deploy time, not at run time.
+- **The hour is a request, not a promise.** Vercel runs a Hobby cron somewhere inside a
+  **one-hour window** after the scheduled time, so consecutive runs can be 25 hours apart. The
+  two TTLs either side of 24 hours (`PRICE_REFRESH_AFTER_MS` 12h, `PRICE_DISPLAY_TTL_MS` 48h)
+  exist to absorb exactly that — see [[Architecture]].
+
+Testing it by hand, without printing the secret:
+
+```bash
+curl -s -H "Authorization: Bearer $(grep '^CRON_SECRET=' .env | cut -d= -f2-)" \
+  http://localhost:3000/api/cron/refresh-prices
+# {"checked":19,"refreshed":17,"failed":0,"skippedFresh":2}
+```
 
 ### GitHub Actions secrets
 
@@ -149,7 +190,9 @@ CI runs unit tests without a real database (mocked db); no DB secrets in CI.
    (Vercel connects from outside Railway, so the internal host will not do).
 3. **Vercel**: import the GitHub repo (personal account — Hobby can't use org repos);
    add env vars above for Production + Preview. **`UPLOADTHING_TOKEN` is the one Phase 9
-   added** — without it the BOX ART panel cannot save anything.
+   added** — without it the BOX ART panel cannot save anything. **`CRON_SECRET` is the one
+   Phase 11 added** — without it the nightly price sweep answers 401 to Vercel's own
+   scheduler and every price on the site quietly stops moving.
 4. **UploadThing**: create the app at uploadthing.com, copy the **V7 token** (not the v6
    `sk_live_…` secret) into `UPLOADTHING_TOKEN`. If the app is recreated, update
    `UPLOADTHING_CDN_HOST` in `next.config.ts` to the new `<app-id>.ufs.sh` in the same PR.
