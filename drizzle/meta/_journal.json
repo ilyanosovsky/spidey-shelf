@@ -36,6 +36,13 @@
       "when": 1786086106710,
       "tag": "0004_price_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795419139509,
+      "tag": "0005_veronika_stitch_grogu",
+      "breakpoints": true
     }
   ]
 }

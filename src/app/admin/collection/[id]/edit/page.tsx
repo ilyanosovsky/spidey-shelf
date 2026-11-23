@@ -6,9 +6,9 @@ import { getOwnedFigure, listUsedPlaces } from "@/lib/collection-queries";
 import { requireAdmin } from "@/lib/dal";
 import { citySuggestionIndex } from "@/lib/places";
 
+import { BoxArtPanel } from "../../../box-art-panel";
 import { CategoryChip, Panel, PixelLink } from "../../../ui";
 import { DeleteOwnedFigure } from "../../delete-owned-figure";
-import { BoxArtPanel } from "./box-art-panel";
 import { EditOwnedFigure } from "./edit-owned-figure";
 
 export const metadata: Metadata = {

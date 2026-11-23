@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 
-import { OWNED_STATUSES } from "@/lib/collection";
+import { OWNED_STATUS_LABELS, OWNED_STATUSES } from "@/lib/collection";
 import type { ReferenceSearchResult } from "@/lib/collection-queries";
 
 import { SightingFields } from "../sighting-fields";
@@ -32,11 +32,6 @@ export interface OwnedFigureFormValues {
   story: string;
   isPublic: boolean;
 }
-
-const STATUS_LABELS: Record<string, string> = {
-  mine: "MINE",
-  not_mine_anymore: "NOT MINE ANYMORE",
-};
 
 export function OwnedFigureForm({
   action,
@@ -88,7 +83,7 @@ export function OwnedFigureForm({
         <select id="status" name="status" defaultValue={values.status} className={fieldClass}>
           {OWNED_STATUSES.map((status) => (
             <option key={status} value={status}>
-              {STATUS_LABELS[status]}
+              {OWNED_STATUS_LABELS[status]}
             </option>
           ))}
         </select>

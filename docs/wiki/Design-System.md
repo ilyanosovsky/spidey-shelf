@@ -18,6 +18,15 @@ Mockups (Claude Design export): `docs/design/mockups/`. Reference: the movie "Sp
 | `--cream`                 | `#FFF6E8`             | text on dark                  |
 | `--lcd-bg` / `--lcd-glow` | `#1E3B23` / `#8BC34A` | LCD counters                  |
 | `--ink-px`                | `#101418`             | pixel outlines, text on amber |
+| `--pink`                  | `#FF7EB6`             | Veronika's frame and chip     |
+| `--stitch-blue`           | `#58C4F5`             | the STITCH category's hue     |
+| `--grogu-green`           | `#B5CF8F`             | the GROGU category's hue      |
+
+The last three arrived in Phase 14 (ADR-013) as `--color-pink`, `--color-stitch-blue` and
+`--color-grogu-green` in `globals.css`. Pink is not a category hue: it means _whose_ figure
+it is (a `veronika` status), and it is drawn as the card's frame, so it can sit on top of any
+category's own accent. The two category hues are deliberately different from each other, from
+pink, and from the four existing ones.
 
 Dark theme only — a deliberate "CRT gadget" product choice.
 
@@ -37,7 +46,7 @@ value references an undefined variable computes to nothing there, so with the cl
 
 ## Category labels
 
-The catalog's four buckets (ADR-009). These strings are the only wording used for them —
+The catalog's six buckets (ADR-009, extended by ADR-013). These strings are the only wording used for them —
 tabs, filters, chips, counters — and live in `src/lib/categories.ts`
 (`FIGURE_CATEGORY_LABELS`), never retyped in a component.
 
@@ -46,6 +55,8 @@ tabs, filters, chips, counters — and live in `src/lib/categories.ts`
 | `peter`        | `PETER PARKER`   |
 | `spider_verse` | `SPIDER-VERSE`   |
 | `friends_foes` | `FRIENDS & FOES` |
+| `stitch`       | `STITCH`         |
+| `grogu`        | `GROGU`          |
 | `other`        | `OTHER`          |
 
 Press Start 2P, uppercase, so they stay short by design; `FRIENDS & FOES` is the longest and
@@ -62,29 +73,30 @@ All three keep what they wrap on the server: the two picture components take the
 and their map as **rendered ReactNodes**, so the sprite geometry and the 27 KB landmass path
 never enter a browser bundle:
 
-| Component        | Props                                                   | Notes                                                                                                                                                                                                 |
-| ---------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PixelFrame`     | `accent?`, `weight` (`sm`/`md`), `as?`                  | the gadget panel: border + hard `--ink-px` shadow. `sm` is the thin card frame on mobile, `md` the screen body; `accent` overrides the border colour                                                  |
-| `PixelButton`    | `variant` (`primary`/`secondary`/`danger`/`quiet`)      | amber CTA / green / coral / outline; pressed = 2px down-right + shorter shadow; `min-h-11` (44px). `PixelButtonLink` is the same thing as a link                                                      |
-| `LCDCounter`     | `value`, `label`, `size` (`sm`/`lg`), `scanlines`       | glowing tabular digits on `--lcd-bg`, 2px scanline overlay (`.lcd-scanlines`)                                                                                                                         |
-| `ToothedBanner`  | `as?` (heading level), `tone` (`coral`/`green`)         | coral plaque, square teeth via `.pixel-teeth` (repeating gradient). Text is `--ink-px`, not cream. `tone="green"` is the Phase 6 success plaque                                                       |
-| `TickerBar`      | `text`                                                  | CSS marquee on an LCD strip; the line is repeated 3× and the track travels ⅓ of its width, so the loop is seamless. Stops under `prefers-reduced-motion`                                              |
-| `PixelSpiderArt` | `slug`, `category`, `popNumber`, `size` (`card`/`hero`) | the drawn box art: a deterministic 16×16 inline-SVG spider, hue per category, pop number as cover text. `aria-hidden` — the card carries the same facts. Since Phase 9 it is reached through `BoxArt` |
-| `FigureCard`     | `entry`, `isNew?`                                       | states: mine (default) · not-mine-anymore (dimmed + amber chip) · new sighting (amber star). Whole card links to `/figure/<slug>`                                                                     |
-| `ShelfScreen`    | `entries`, `progress`, `filter`                         | the home screen as a pure function of fetched data, so `src/app/page.tsx` is only the DB shell                                                                                                        |
+| Component        | Props                                                   | Notes                                                                                                                                                                                                                                                                                                                   |
+| ---------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PixelFrame`     | `accent?`, `weight` (`sm`/`md`), `as?`                  | the gadget panel: border + hard `--ink-px` shadow. `sm` is the thin card frame on mobile, `md` the screen body; `accent` overrides the border colour                                                                                                                                                                    |
+| `PixelButton`    | `variant` (`primary`/`secondary`/`danger`/`quiet`)      | amber CTA / green / coral / outline; pressed = 2px down-right + shorter shadow; `min-h-11` (44px). `PixelButtonLink` is the same thing as a link                                                                                                                                                                        |
+| `LCDCounter`     | `value`, `label`, `size` (`sm`/`lg`), `scanlines`       | glowing tabular digits on `--lcd-bg`, 2px scanline overlay (`.lcd-scanlines`)                                                                                                                                                                                                                                           |
+| `ToothedBanner`  | `as?` (heading level), `tone` (`coral`/`green`)         | coral plaque, square teeth via `.pixel-teeth` (repeating gradient). Text is `--ink-px`, not cream. `tone="green"` is the Phase 6 success plaque                                                                                                                                                                         |
+| `TickerBar`      | `text`                                                  | CSS marquee on an LCD strip; the line is repeated 3× and the track travels ⅓ of its width, so the loop is seamless. Stops under `prefers-reduced-motion`                                                                                                                                                                |
+| `PixelSpiderArt` | `slug`, `category`, `popNumber`, `size` (`card`/`hero`) | the drawn box art: a deterministic 16×16 inline-SVG sprite — the spider, or (Phase 14) a pixel Stitch / pixel Grogu for a figure in `stitch` / `grogu` (`figureSpriteKind`) — hue per category, pop number as cover text. `aria-hidden` — the card carries the same facts. Since Phase 9 it is reached through `BoxArt` |
+| `FigureCard`     | `entry`, `isNew?`                                       | states: mine (default, category-accent frame) · not-mine-anymore (dimmed + amber chip) · Veronika's (Phase 14: `--pink` frame + pink `VERONIKA'S` chip, not dimmed) · new sighting (amber star). Whole card links to `/figure/<slug>`                                                                                   |
+| `ShelfScreen`    | `entries`, `progress`, `filter`                         | the home screen as a pure function of fetched data, so `src/app/page.tsx` is only the DB shell                                                                                                                                                                                                                          |
 
-Category hues (`PixelSpiderArt`, card frames, category chips): `peter` → coral ·
-`spider_verse` → green · `friends_foes` → amber · `other` → blue-frame.
+Category hues (`PixelSpiderArt`, card frames, category chips; `CATEGORY_ACCENT`): `peter` →
+coral · `spider_verse` → green · `friends_foes` → amber · `stitch` → stitch-blue · `grogu` →
+grogu-green · `other` → blue-frame.
 
 Added in Phase 5 (search, wishlist, stats):
 
-| Component      | Props                  | Notes                                                                                                                                                                                                                                 |
-| -------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VerdictStamp` | `verdict`              | the answer, stamped: green `OWNED` · coral `NOT OWNED YET` + amber `GIFT IDEA` chip · coral `NOT OWNED` + the lower-case footnote "was in the collection once". Rotated −2°, ink on both fills                                        |
-| `PublicNav`    | `pathname`, `isAdmin?` | SHELF · SEARCH · WISHLIST · STATS as a 4-column grid (never wraps at 375px), `min-h-11`, active item filled green. `pathname` is a prop — server components have no `usePathname()`. Phase 10 added the amber CONSOLE tab             |
-| `WantedCard`   | `figure`               | `FigureCard`'s twin for a catalog row nobody owns: coral frame, WANTED stamp top-right, links to `/search?q=<number>`. Not one big link — it holds the SHARE button                                                                   |
-| `ShareButton`  | `href`, `title`        | one of the two client components on the public site: `navigator.share`, else clipboard + "LINK COPIED" for 2s. Resolves the relative href against the current origin                                                                  |
-| `WebRadar`     | `progress`             | the spider-web progress chart: one sector per bucket filled to `owned / total`, 4 rings, 12 threads. Geometry is pure and tested in `src/lib/radar.ts`; the SVG is `aria-hidden` and the legend beneath carries the labels and counts |
+| Component      | Props                  | Notes                                                                                                                                                                                                                                                                 |
+| -------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VerdictStamp` | `verdict`              | the answer, stamped: green `OWNED` · coral `NOT OWNED YET` + amber `GIFT IDEA` chip · coral `NOT OWNED` + the lower-case footnote "was in the collection once". Rotated −2°, ink on both fills                                                                        |
+| `PublicNav`    | `pathname`, `isAdmin?` | SHELF · SEARCH · WISHLIST · STATS as a 4-column grid (never wraps at 375px), `min-h-11`, active item filled green. `pathname` is a prop — server components have no `usePathname()`. Phase 10 added the amber CONSOLE tab                                             |
+| `WantedCard`   | `figure`               | `FigureCard`'s twin for a catalog row nobody owns: coral frame, WANTED stamp top-right, links to `/search?q=<number>`. Not one big link — it holds the SHARE button                                                                                                   |
+| `ShareButton`  | `href`, `title`        | one of the two client components on the public site: `navigator.share`, else clipboard + "LINK COPIED" for 2s. Resolves the relative href against the current origin                                                                                                  |
+| `WebRadar`     | `progress`             | the spider-web progress chart: one sector per bucket filled to `owned / total`, 4 rings, 3 threads per sector (18 with six buckets). Geometry is pure and tested in `src/lib/radar.ts`; the SVG is `aria-hidden` and the legend beneath carries the labels and counts |
 
 `WebRadar` fills **linearly and honestly** — at 11/120 the peter wedge really is a sliver.
 No minimum-visible-bar fudge: the counters next to it are the point of the screen, and a
@@ -102,15 +114,15 @@ DETAILS step's `SightingFields` (Phase 12, one `useState`) — so every frame st
 submits before hydration. The primary button of every frame sits last so it lands under the
 thumb at 375px, and every target clears 44px.
 
-| Frame                       | One line                                                                                                                                                                                                |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `IdentifyStep` (step 1)     | autofocused GET box over the whole catalog, tappable result cards, the green `⌖ SCAN THE BOX` button (Phase 7), and `+ ADD AS NEW FIGURE` always last                                                   |
-| `NewFigureStep` (step 1b)   | name + optional number (prefilled from the search) + four category chips (`PETER PARKER` preselected) + optional product line → a `needs_review` catalog row                                            |
-| `ConfirmStep` (step 2)      | coral `IS IT THIS ONE?` banner, the figure as a `PixelSpiderArt` hero, `OR ONE OF THESE` variant cards, and either `CONFIRM — IT'S MINE` or the amber duplicate warning                                 |
-| `FixStep` (step 2, detour)  | NAME · POP NUMBER (optional) · four category chips · PRODUCT LINE (optional), all prefilled from the row, `SAVE THE CORRECTION` — the catalog's escape hatch for a checklist typo (Phase 12), see below |
-| `DetailsStep` (step 3)      | date (today) · city + country (last used) · status chips · optional story, with `SAVE THE SIGHTING` first in the DOM and `SKIP FOR NOW` under it                                                        |
-| `DoneStep` (step 4)         | green `SIGHTING CONFIRMED!` plaque, the figure, two LCD counters with fresh counts, then `ADD ANOTHER` · `VIEW IT` · `WRITE THE STORY` (only when one is owed)                                          |
-| `QuickAddRail` (all frames) | `1` / `FIND` · `2` / `CONFIRM` · `3` / `DETAILS`, index above label (Phase 12, see below), the active cell filled amber; `new` sits on step 1, `fix` on step 2, `done` on step 3                        |
+| Frame                       | One line                                                                                                                                                                                                                                                                         |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IdentifyStep` (step 1)     | autofocused GET box over the whole catalog, tappable result cards, the green `⌖ SCAN THE BOX` button (Phase 7), and `+ ADD AS NEW FIGURE` always last                                                                                                                            |
+| `NewFigureStep` (step 1b)   | name + optional number (prefilled from the search) + six category chips in a two-column grid (`PETER PARKER` preselected) + optional product line → a `needs_review` catalog row                                                                                                 |
+| `ConfirmStep` (step 2)      | coral `IS IT THIS ONE?` banner, the figure as a `PixelSpiderArt` hero, `OR ONE OF THESE` variant cards, and either `CONFIRM — IT'S MINE` or the amber duplicate warning                                                                                                          |
+| `FixStep` (step 2, detour)  | NAME · POP NUMBER (optional) · six category chips · PRODUCT LINE (optional), all prefilled from the row, `SAVE THE CORRECTION` — the catalog's escape hatch for a checklist typo (Phase 12), see below                                                                           |
+| `DetailsStep` (step 3)      | the `BOX ART` panel (Phase 14) · date (today) · city + country (last used) · three status chips (`MINE` · `NOT MINE ANYMORE` · `VERONIKA'S`, the last preselected for a Stitch or Grogu) · optional story, with `SAVE THE SIGHTING` first in the DOM and `SKIP FOR NOW` under it |
+| `DoneStep` (step 4)         | green `SIGHTING CONFIRMED!` plaque, the figure, two LCD counters with fresh counts, then `ADD ANOTHER` · `VIEW IT` · `WRITE THE STORY` (only when one is owed)                                                                                                                   |
+| `QuickAddRail` (all frames) | `1` / `FIND` · `2` / `CONFIRM` · `3` / `DETAILS`, index above label (Phase 12, see below), the active cell filled amber; `new` sits on step 1, `fix` on step 2, `done` on step 3                                                                                                 |
 
 The shared furniture — the rail, the chips, the hero and summary cards, the error list — is
 `src/app/admin/add/quick-add-ui.tsx`. Chip tones: category cream · variant amber · coral
@@ -164,12 +176,12 @@ may ever render from it.
 
 Added in Phase 8 (map, prices, PWA):
 
-| Component         | Props                       | Notes                                                                                                                                                                                                         |
-| ----------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SightingsMap`    | `data` (`SightingsMapData`) | the travel map on `/stats`: navy ground, 30° graticule, Natural Earth landmass, 5×5 pixel spiders on the cities. `viewBox` is the crop, computed from the markers; SVG is `aria-hidden`                       |
-| `SightingsLegend` | `data`                      | flag · city · count under the map, and the accessible version of it. **Deliberately not links** — there are no city pages, and a link that goes nowhere is a worse promise than text. Plus the UNCHARTED line |
-| `MarketSignal`    | `panel` (`MarketPanel`)     | the LCD price panel on `/figure/[slug]`: `~$25 · 25 LISTINGS`, `MIN $19`, `SEE ON EBAY ↗`, the fetch age, and the fine print. Renders only when there is a number; never explains its own absence             |
-| `PriceChip`       | `label`                     | the wishlist's amber `~$25`. Appears only where a figure page has already paid for the lookup and the answer is still fresh — the wishlist never triggers one                                                 |
+| Component         | Props                       | Notes                                                                                                                                                                                                                                                    |
+| ----------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SightingsMap`    | `data` (`SightingsMapData`) | the travel map on `/stats`: navy ground, 30° graticule, Natural Earth landmass, 5×5 pixel icons on the cities — one per kind found there: spider, Stitch, Grogu (Phase 14). `viewBox` is the crop, computed from the markers; SVG is `aria-hidden`       |
+| `SightingsLegend` | `data`                      | flag · city · a mini sprite and count per kind under the map (the map's key), and the accessible version of it. **Deliberately not links** — there are no city pages, and a link that goes nowhere is a worse promise than text. Plus the UNCHARTED line |
+| `MarketSignal`    | `panel` (`MarketPanel`)     | the LCD price panel on `/figure/[slug]`: `~$25 · 25 LISTINGS`, `MIN $19`, `SEE ON EBAY ↗`, the fetch age, and the fine print. Renders only when there is a number; never explains its own absence                                                        |
+| `PriceChip`       | `label`                     | the wishlist's amber `~$25`. Appears only where a figure page has already paid for the lookup and the answer is still fresh — the wishlist never triggers one                                                                                            |
 
 The map's marker is the `MapMarker` the brief asked for, arrived at from the other direction:
 not a spider in a round frame with a status colour, but the shelf's own **category** hue on a
@@ -181,13 +193,42 @@ lives in `src/lib/spider-sprite.ts`. The card art, the map's 5×5 simplification
 icons all read from it, because two hand-drawn copies of one animal drift the first time
 somebody straightens a leg.
 
+**Veronika's figures on the shelf and the map (Phase 14, ADR-013).**
+
+- _Frame and chip._ A `veronika` figure is framed in `--pink` on `FigureCard` and on the figure
+  page (`PixelFrame accent`), with a pink `VERONIKA'S` chip — on the card as well as in the
+  page's ownership chip, which is otherwise green `ON THE SHELF` or amber `NOT MINE ANYMORE`.
+  It is **not dimmed**: her figure is on the shelf as much as his. The category line keeps its
+  own accent, so the frame says whose and the line still says what; the chip exists because colour must
+  never be the only signal. In the
+  admin lists the status chip reads `VERONIKA'S` in pink, next to `MINE` and `GONE`.
+- _Status picker._ Quick Add's details step and the collection form read `OWNED_STATUS_LABELS`.
+  Three chips do not fit in a row in the pixel font at 375px, so the grid is two columns there
+  with the last chip (`VERONIKA'S`) spanning both, and three columns from `sm`.
+- _Placeholder art._ `PixelSpiderArt` draws the line's own 16×16 sprite for `stitch` and
+  `grogu` (`src/lib/figure-sprites.ts`; rows are ASCII, parsed to rects by
+  `src/lib/pixel-grid.ts`), tinted with the category token. A Stitch is two tall ears with pink
+  insides over a wide face and the big ink nose; a Grogu is a round head with ears out to both
+  edges over a cream robe. Every other category, `other` included, keeps the spider. The
+  spider's own sprite, the favicon and the share card are untouched. The sprites keep the cells
+  where the per-figure specks land empty, which a test enforces.
+- _Map markers._ One city is still one cluster and one coordinate, but it now carries
+  `icons`: one 5×5 sprite per kind present (spider, Stitch, Grogu — always in that order),
+  drawn side by side on dark plates, the group centred on the city, with a `×n` badge per kind
+  that has more than one figure. The sprites are `src/lib/marker-sprites.ts`; a spider-only
+  city renders exactly as before. A city's total (`count`) still counts every figure.
+- _Legend as key._ Each legend chip repeats the city's sprites at text size, each followed by
+  that kind's count, so the Stitch and the Grogu on the map are explained underneath it. The
+  mini sprites are `aria-hidden`; a screen reader gets one sentence per city ("3 spiders,
+  1 Stitch, 1 Grogu").
+
 Added in Phase 9 (box art the owner uploads — ADR-011):
 
-| Component     | Props                                                                     | Notes                                                                                                                                                                                           |
-| ------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `BoxArt`      | `slug`, `name`, `category`, `popNumber`, `imagePath?`, `size`, `sizes`    | **the one place a figure's picture is chosen**: uploaded art through `next/image`, else `PixelSpiderArt`. Every card, hero and admin summary goes through it, so the three sources cannot drift |
-| `BoxArtImage` | `src`, `alt`, `sizes`, `fallback`, `priority?`                            | the `onError` swap, and the only client component Phase 9 adds to the public site. `fallback` is a **rendered ReactNode**, so the placeholder stays server-side                                 |
-| `BoxArtPanel` | `referenceFigureId`, `slug`, `name`, `category`, `popNumber`, `imagePath` | the BOX ART panel on `/admin/collection/[id]/edit` — the upload screen                                                                                                                          |
+| Component     | Props                                                                     | Notes                                                                                                                                                                                                                                                           |
+| ------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BoxArt`      | `slug`, `name`, `category`, `popNumber`, `imagePath?`, `size`, `sizes`    | **the one place a figure's picture is chosen**: uploaded art through `next/image`, else `PixelSpiderArt`. Every card, hero and admin summary goes through it, so the three sources cannot drift                                                                 |
+| `BoxArtImage` | `src`, `alt`, `sizes`, `fallback`, `priority?`                            | the `onError` swap, and the only client component Phase 9 adds to the public site. `fallback` is a **rendered ReactNode**, so the placeholder stays server-side                                                                                                 |
+| `BoxArtPanel` | `referenceFigureId`, `slug`, `name`, `category`, `popNumber`, `imagePath` | the BOX ART panel — the upload UI, in `src/app/admin/box-art-panel.tsx`; mounted on `/admin/collection/[id]/edit` and (Phase 14) on Quick Add's details step. `preview?` (default `true`) draws the 160px picture beside the controls; Quick Add passes `false` |
 
 **`BoxArt` replaced eight direct `PixelSpiderArt` calls.** The placeholder component itself is
 unchanged and still the default; what moved is the decision. Alt text is always
@@ -220,7 +261,7 @@ country: the cities already on the shelf there ∪ the SIGHTINGS MAP dictionary'
 names for it; free text stays allowed because new cities are the point of a travel log. The
 only client state in the whole component is one `useState` holding the country box's value.
 
-### The BOX ART panel (`/admin/collection/[id]/edit`, admin-only)
+### The BOX ART panel (edit screen and Quick Add details step, admin-only)
 
 Custom UI over the SDK's `useUploadThing` hook — deliberately **not** the stock
 `<UploadButton />`, which ships its own design system and would paint a Tailwind-generic
@@ -229,7 +270,7 @@ number; everything on screen is house furniture:
 
 | Piece         | What                                                                                                                         |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| the preview   | `BoxArt` at `hero` size — the current art, or the drawn spider                                                               |
+| the preview   | `BoxArt` at `hero` size — the current art, or the drawn placeholder (only with `preview`, see below)                         |
 | the button    | amber `PixelButton` (`min-h-11`), labelled `UPLOAD BOX ART` or `REPLACE BOX ART`; opens a `sr-only` `accept="image/*"` input |
 | the readout   | an LCD strip: a ten-block bar (`▓▓▓▓▓░░░░░`, pixel font so the blocks align) over the caption                                |
 | the success   | green `ToothedBanner` — `BOX ART SECURED!`                                                                                   |
@@ -253,6 +294,22 @@ closed-table rule as `QUICK_ADD_COPY` and `SCAN_COPY`: `BOX ART` ·
 The panel sits **above** the sighting form and outside it, because box art belongs to the
 catalog row rather than to the sighting, and because uploading is immediate — there is no
 SAVE, and a field inside a form promises otherwise.
+
+**Two screens, one panel (Phase 14).** The owner's note was that a photo could only be
+uploaded through EDIT, after the figure was saved — in practice, never. The component moved
+from `src/app/admin/collection/[id]/edit/` to `src/app/admin/box-art-panel.tsx` and is now
+mounted in both places:
+
+| Screen                       | `preview` | Why                                                                                                                                                                    |
+| ---------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| edit (`/admin/collection/…`) | `true`    | the panel is the only place on that page where the art appears, so it draws the 160px picture                                                                          |
+| Quick Add, details step      | `false`   | the `FigureSummary` directly above is the picture and repaints through `router.refresh()` when the upload lands; a second copy would push the form down a phone screen |
+
+On the details step it is wrapped in its own `Panel` between the figure summary and the form,
+uploads immediately to the catalog row (which exists from the moment the figure is picked),
+and skipping it costs nothing. Because it only refreshes server data and never navigates, what
+was typed into the fields below survives the upload. The placeholder note now reads "No box
+art yet — the shelf is drawing a pixel stand-in instead." (it used to say "a spider").
 
 Added in Phase 10 (the owner's own feedback after a week of using it):
 
@@ -395,7 +452,7 @@ component: `NEW SIGHTING` · `NUMBER OR NAME` · `SCAN THE CATALOG` ·
 `ALREADY IN THE VAULT (SINCE APR 2025)` · `ADD DUPLICATE (+1)` · `WHERE AND WHEN?` ·
 `SAVE THE SIGHTING` · `SKIP FOR NOW` · `SIGHTING CONFIRMED!` · `ADD ANOTHER` · `VIEW IT` ·
 `WRITE THE STORY` · `STORIES OWED: 3` · `STORY OWED`. Form complaints are a closed table of
-codes with fixed wording (`DATE MUST BE YYYY-MM-DD`, `PICK ONE OF THE FOUR CATEGORIES`, …) —
+codes with fixed wording (`DATE MUST BE YYYY-MM-DD`, `PICK A CATEGORY FROM THE LIST`, …) —
 they travel in the URL, so nothing else may ever render from it.
 
 Phase 8 wording lives in `MARKET_COPY` (`src/lib/ebay/snapshot.ts`) and

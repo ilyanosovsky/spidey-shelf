@@ -133,7 +133,7 @@ export default async function QuickAddPage({
       return (
         <DetailsStep
           figure={figure}
-          defaults={quickAddDefaults(today(), lastUsedPlace(recent))}
+          defaults={quickAddDefaults(today(), lastUsedPlace(recent), figure.category)}
           citiesByCountry={citySuggestionIndex(used)}
           upc={upc}
           errors={errors}

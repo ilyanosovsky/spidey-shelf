@@ -20,8 +20,8 @@ import { QuickAddErrors, QuickAddRail, QuickAddScreen } from "./quick-add-ui";
  * `source = manual` and `needs_review = true`, so the triage pass picks it up later — the
  * owner's shelf is the source of truth about what he owns, and the catalog can catch up.
  *
- * The category radios are chips rather than a `<select>` because four options on a phone are
- * four taps of 44px, not a scroll wheel; `peter` is preselected because it is the bucket the
+ * The category radios are chips rather than a `<select>` because six options on a phone are
+ * a 2×3 grid of 44px taps, not a scroll wheel; `peter` is preselected because it is the bucket the
  * counters are about and the most likely answer on a Spider-Man shelf.
  */
 export function NewFigureStep({

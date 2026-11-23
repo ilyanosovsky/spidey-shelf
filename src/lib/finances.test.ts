@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { shelfEntry } from "@/test/fixtures";
+import { shelfEntry, VERONIKA_SHELF_ENTRY } from "@/test/fixtures";
 
 import { type StoredSnapshot } from "./ebay/snapshot";
 import {
@@ -47,7 +47,8 @@ const ALSO_MINE = shelfEntry({ slug: "b-mine", name: "Miles Morales", status: "m
 const GONE = shelfEntry({ slug: "c-gone", name: "Hula Stitch", status: "not_mine_anymore" });
 
 describe("countsTowardValue", () => {
-  it("counts a public `mine` row and nothing else", () => {
+  it("counts a public on-the-shelf row — his or Veronika's — and nothing else", () => {
+    expect(countsTowardValue(VERONIKA_SHELF_ENTRY)).toBe(true);
     expect(countsTowardValue(MINE)).toBe(true);
     expect(countsTowardValue(GONE)).toBe(false);
     // A row with no status is a half-finished quick-add, not a valuation. This is
@@ -58,6 +59,20 @@ describe("countsTowardValue", () => {
 });
 
 describe("collectionFinances", () => {
+  it("adds Veronika's figures to the vault value — it is one shared shelf", () => {
+    const { entries, prices } = priced([
+      [MINE, 2400],
+      [VERONIKA_SHELF_ENTRY, 1500],
+      [GONE, 90000],
+    ]);
+
+    const finances = collectionFinances(entries, prices);
+
+    expect(finances?.totalCents).toBe(3900);
+    expect(finances?.pricedCount).toBe(2);
+    expect(finances?.ownedCount).toBe(2);
+  });
+
   it("adds up the medians of the figures that are actually on the shelf", () => {
     const { entries, prices } = priced([
       [MINE, 2400],

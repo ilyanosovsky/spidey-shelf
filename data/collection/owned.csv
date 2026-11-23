@@ -15,6 +15,6 @@ pop_number,name,status,acquired_at,acquired_city,acquired_country,notes
 29,Little Prince,not_mine_anymore,2023-12-28,Haifa,IL,non-Spider-Man
 1413,Deadpool,mine,2025-04-12,Moscow,RU,non-Spider-Man
 1344,Deadpool Sleepover,mine,2025-04-15,Moscow,RU,non-Spider-Man
-718,Hula Stitch,not_mine_anymore,2025-10-05,Amsterdam,NL,non-Spider-Man
-1572,Leroy,not_mine_anymore,2025-10-17,Moscow,RU,non-Spider-Man
-1570,Stitch As Pineapple,not_mine_anymore,2025-12-31,Batumi,GE,non-Spider-Man
+718,Hula Stitch,veronika,2025-10-05,Amsterdam,NL,non-Spider-Man
+1572,Leroy,veronika,2025-10-17,Moscow,RU,non-Spider-Man
+1570,Stitch As Pineapple,veronika,2025-12-31,Batumi,GE,non-Spider-Man

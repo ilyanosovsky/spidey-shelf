@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-import { shelfEntry } from "@/test/fixtures";
+import { shelfEntry, VERONIKA_SHELF_ENTRY } from "@/test/fixtures";
 
 import { FigureCard } from "./figure-card";
 
@@ -48,6 +48,27 @@ describe("FigureCard", () => {
     expect(screen.getByText("NOT MINE ANYMORE")).toBeInTheDocument();
     expect(screen.getByRole("link").className).toContain("opacity-60");
     expect(screen.getByText("OTHER")).toBeInTheDocument();
+  });
+
+  it("frames Veronika's figure in pink, says so in words, and does not dim it", () => {
+    render(<FigureCard entry={VERONIKA_SHELF_ENTRY} />);
+
+    const link = screen.getByRole("link");
+    expect(link.style.borderColor).toBe("var(--color-pink)");
+    expect(link.className).not.toContain("opacity-60");
+
+    const chip = screen.getByText("VERONIKA'S");
+    expect(chip).toHaveClass("border-pink", "text-pink");
+    expect(screen.queryByText("NOT MINE ANYMORE")).not.toBeInTheDocument();
+
+    // The frame says whose; the category line still says what, in its own accent.
+    expect(screen.getByText("STITCH").style.color).toBe("var(--color-stitch-blue)");
+  });
+
+  it("keeps the category accent as the frame for the owner's figures", () => {
+    render(<FigureCard entry={shelfEntry()} />);
+    expect(screen.getByRole("link").style.borderColor).toBe("var(--color-coral)");
+    expect(screen.queryByText("VERONIKA'S")).not.toBeInTheDocument();
   });
 
   it("stars a new sighting only when asked", () => {

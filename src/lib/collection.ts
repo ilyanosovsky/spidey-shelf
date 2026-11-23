@@ -26,10 +26,43 @@ export const OWNED_CSV_COLUMNS = [
   "notes",
 ] as const;
 
-/** Notion's two states. A figure that left the shelf keeps its row and its story. */
-export const OWNED_STATUSES = ["mine", "not_mine_anymore"] as const;
+/**
+ * Who a row belongs to, in display order.
+ *
+ * `mine` and `not_mine_anymore` are Notion's two states — a figure that left the shelf keeps
+ * its row and its story. `veronika` (Phase 14) marks a figure that is on the shared shelf but
+ * is Veronika's, not the owner's. It is a third status rather than an "owner" column because
+ * ownership and presence are the same question here: a figure is either on the shelf (and
+ * then it is someone's) or it is gone.
+ */
+export const OWNED_STATUSES = ["mine", "not_mine_anymore", "veronika"] as const;
 
 export type OwnedStatus = (typeof OWNED_STATUSES)[number];
+
+/**
+ * UI labels — the single source for every status picker and chip, so the admin forms cannot
+ * drift apart. Press Start 2P, hence short and uppercase.
+ */
+export const OWNED_STATUS_LABELS: Record<OwnedStatus, string> = {
+  mine: "MINE",
+  not_mine_anymore: "NOT MINE ANYMORE",
+  veronika: "VERONIKA'S",
+};
+
+/**
+ * True when the figure is physically on the shared shelf — the owner's or Veronika's. This,
+ * not "status is mine", is what the duplicate guard, the vault value and the shelf counter
+ * ask: it is one shelf, whoever's name is on the box. NULL rows predate the status column
+ * and are treated as not on the shelf, the conservative reading.
+ */
+export function isOnTheShelf(status: string | null | undefined): boolean {
+  return status === "mine" || status === "veronika";
+}
+
+/** True for a figure that is Veronika's. */
+export function isVeronikas(status: string | null | undefined): boolean {
+  return status === "veronika";
+}
 
 /** One row of the collection CSV, already validated. */
 export interface OwnedSeedRow {

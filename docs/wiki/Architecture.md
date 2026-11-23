@@ -51,7 +51,7 @@ A figure's picture has had three answers on this project, and all three are live
 
 | #   | Source                            | Status                                      | What draws it                  |
 | --- | --------------------------------- | ------------------------------------------- | ------------------------------ |
-| 1   | **drawn pixel spider** (Phase 4)  | the default — `image_path` is NULL          | `PixelSpiderArt`               |
+| 1   | **drawn pixel sprite** (Phase 4)  | the default — `image_path` is NULL          | `PixelSpiderArt`               |
 | 2   | **owner upload** (Phase 9)        | **live** — ADR-011, nothing uploaded yet    | `next/image` via `BoxArtImage` |
 | 3   | **pops.today pipeline** (ADR-004) | unbuilt — permission email still unanswered | would write the same column    |
 
@@ -59,9 +59,11 @@ A figure's picture has had three answers on this project, and all three are live
 figure is drawn (`FigureCard`, `WantedCard`, `SearchResultCard`, the figure page hero, and
 Quick Add's hero / summary / result cards). Everything else just passes `imagePath` down.
 
-### 1 · The drawn spider is not a "missing image" state
+### 1 · The drawn sprite is not a "missing image" state
 
-`PixelSpiderArt` renders a 16×16 inline-SVG spider tinted by the figure's category with the
+`PixelSpiderArt` renders a 16×16 inline-SVG spider — or, since Phase 14, the pixel Stitch or pixel
+Grogu (`src/lib/figure-sprites.ts`) for a figure in the `stitch` / `grogu` category; every other
+category keeps the spider — tinted by the figure's category with the
 pop number as cover text, and it is deterministic — an FNV-1a hash of the slug picks three
 background specks and nothing else varies — so a figure looks identical on the grid, on its
 own page, and after a redeploy. It is also the **`onError` fallback**: a stored URL that
@@ -70,8 +72,17 @@ again rather than a broken-image glyph.
 
 ### 2 · The owner's upload (Phase 9)
 
-`/admin/collection/[id]/edit` → BOX ART panel → pick a file → the **browser** normalizes it
+BOX ART panel (`src/app/admin/box-art-panel.tsx`) → pick a file → the **browser** normalizes it
 → UploadThing → `reference_figures.image_path`.
+
+The panel is mounted in **two places** since Phase 14: `/admin/collection/[id]/edit` and
+Quick Add's details step (`src/app/admin/add/details-step.tsx`). It used to live under
+`collection/[id]/edit/` and was reachable only through EDIT, after the figure was saved. It
+needs nothing but the catalog row's id, and that row exists from the moment a figure is
+picked, so on Quick Add it sits outside the sighting `<form>`, uploads immediately and has no
+SAVE. A `preview` prop (default `true`) draws the 160px picture; Quick Add passes `false`
+because the figure summary above is the picture and repaints on `router.refresh()`. The
+upload path below is identical for both.
 
 ```
 pick  ─► rejectPickedFile()      not an image / over 4MB → refused before a decode
@@ -108,8 +119,8 @@ pick  ─► rejectPickedFile()      not an image / over 4MB → refused before 
 - **The only client JavaScript this adds to the public site** is `BoxArtImage`, the `onError`
   swap. The placeholder is handed to it as a rendered ReactNode, so `PixelSpiderArt`, the
   sprite geometry and the category tokens all stay on the server; the 47 KB UploadThing chunk
-  is on `/admin/collection/[id]/edit` and nowhere else (checked against the built
-  client-reference manifests).
+  was on `/admin/collection/[id]/edit` and nowhere else when it was measured (checked against the
+  built client-reference manifests); since Phase 14 it is on Quick Add's details step as well.
 
 ### 3 · The pipeline that is still not built
 
@@ -120,7 +131,8 @@ what makes Phase 9 an interim rather than a fork in the road.
 ## Key mechanisms
 
 - **Public showcase**: `/` renders the whole shelf (header + LCD `peter` counter, a NEW
-  SIGHTINGS ribbon, `?cat=` tabs over the four buckets, a 2/3/4-column grid) and
+  SIGHTINGS ribbon, `?cat=` tabs over the six buckets — Veronika's STITCH and GROGU included — and a
+  2/3/4-column grid) and
   `/figure/[slug]` renders one figure with its sighting log and wrap-around prev/next.
   Ordering is by `acquired_at` desc, **not** `created_at`: the collection was backfilled in
   a single seed run, so every row shares one `created_at` instant. All the decisions
@@ -168,20 +180,24 @@ what makes Phase 9 an interim rather than a fork in the road.
     different waves — "Spider-Man" names some forty unrelated Pops, and without that clause
     the confirm screen for #3 would offer half the catalog. SQL casts a wide candidate net;
     the rule itself is `variantSiblings()`, pure and unit-tested.
-  - **Duplicate guard.** When a `mine` shelf row already holds the figure, the primary button
+  - **Duplicate guard.** When a row that is on the shelf (`mine` or `veronika`, see
+    `isOnTheShelf`) already holds the figure, the primary button
     becomes `ADD DUPLICATE (+1)`: it bumps `quantity` on the existing row (as a SQL
     expression, not a computed constant) and jumps straight to the success screen. One entry
     per figure is what keeps the grid and every counter honest — a second box is not a second
     sighting. A `not_mine_anymore` row never triggers the warning: re-buying a Pop he gave
-    away is how this collection grows.
+    away is how this collection grows. It is one shared shelf, so a second Hula Stitch is a
+    duplicate whether the first is his or hers (ADR-013).
   - **Story queue.** `SKIP FOR NOW` is a second submit on the details form and writes
     `needs_story`. The invariant both write paths keep is _a sighting with no story is a story
     owed_ (`needs_story ⇔ story IS NULL`), so the console's `STORIES OWED: n` line →
     `/admin/collection?filter=needs_story` can never drift, and saving the edit form is what
     clears it.
-  - **Smart defaults.** Step 3 opens with today's date, `MINE`, and the city/country of the
-    most recent shelf row — the "whole trip in one tap" trick, since figures arrive in
-    clusters. Box art comes from the catalog automatically; no photo is ever uploaded.
+  - **Smart defaults.** Step 3 opens with today's date, the status (`VERONIKA'S` for a figure in
+    `stitch` / `grogu`, otherwise `MINE` — `quickAddDefaults(today, place, category)`), and the
+    city/country of the most recent shelf row — the "whole trip in one tap" trick, since
+    figures arrive in clusters. Box art comes from the catalog; since Phase 14 the details step
+    also carries the BOX ART panel (see above), so a photo can be added right there.
   - Step 1's `⌖ SCAN THE BOX` button is the Phase 7 scanner and the flow's only client
     JavaScript — see below.
 - **Scanner** (Phase 7): see [Barcode scanner](#barcode-scanner-phase-7).
@@ -391,12 +407,24 @@ dependency. Two details are load-bearing:
 
 ### Markers
 
-5×5 pixel spiders — `PixelSpiderArt`'s 16×16 sprite reduced to what survives at 25px — sized in
+5×5 pixel icons — `PixelSpiderArt`'s 16×16 sprite reduced to what survives at 25px — sized in
 **degrees rather than pixels**, so a marker is the same fraction of the panel on a 375px phone
-and on a desktop. Same-city figures are one marker with an amber count badge, coloured by the
-bucket most of that city's figures belong to. Cities 250 km apart on a 20,000 km map overlap and
-always will; markers are drawn smallest-first so the busier city ends up on top, and the legend
-beneath — flag, city, count, as real text — is where the numbers are actually read. The SVG is
+and on a desktop. Since Phase 14 a city shows **one icon per kind of figure found there**:
+the spider, the Stitch and the Grogu (`CitySighting.icons`, in that fixed order, never an
+entry with a zero count; sprites in `src/lib/marker-sprites.ts`). Icons sit side by side on
+dark plates, the group centred on the city's one coordinate (`sightingIconOffsets`), each
+with its own amber count badge when it stands for more than one figure; the group's badges
+flip to the left together near the right edge of the crop. The kind comes from the figure's
+category (`figureSpriteKind`), and an icon's colour is the dominant bucket among that kind's
+own figures — so the owner's spiders and her lines read as the two collections they are,
+rather than one coral spider hiding that one of three figures in Amsterdam is hers. A city
+with only spiders renders exactly as it did before. Clustering is unchanged: still one cluster
+per `(country, city)`, and `count` is still every figure found there.
+
+Cities 250 km apart on a 20,000 km map overlap and always will; markers are drawn
+smallest-first so the busier city ends up on top. The legend beneath is where the numbers are
+actually read, as real text: flag, city, and per kind a mini sprite plus count — the map's
+key — with one sr-only sentence per city ("3 spiders, 1 Stitch, 1 Grogu"). The SVG is
 `aria-hidden`, the same rule `WebRadar` follows.
 
 ## eBay MARKET SIGNAL (Phase 8) — live since 2026-08-07
@@ -520,7 +548,8 @@ and the cron became the only thing that fills it.
 `src/lib/finances.ts` is pure arithmetic over the same `PublicShelfEntry[]` every other view
 of the collection uses, plus the snapshots. Three claims it has to be able to defend:
 
-- **only `status = 'mine'` counts** — a figure that left the shelf keeps its card, its story
+- **only what is on the shelf counts** — `status` is `mine` or `veronika` (ADR-013: one
+  shelf, so her Stitches and Grogus are part of what it is worth). A figure that left the shelf keeps its card, its story
   and its place in the counters, but it is not part of what the shelf is worth today. Neither
   is a row with no status: that is a half-finished quick-add. (Deliberately stricter than
   `catalog_with_ownership.owned_count`, which does count a NULL status — that view answers

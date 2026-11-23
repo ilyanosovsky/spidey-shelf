@@ -4,9 +4,13 @@ import { describe, expect, it } from "vitest";
 
 import { CATALOG_CSV_PATHS, parseCatalogCsvFiles } from "./catalog";
 import {
+  isOnTheShelf,
+  isVeronikas,
   matchOwnedRow,
   nameScore,
   OWNED_CSV_PATH,
+  OWNED_STATUS_LABELS,
+  OWNED_STATUSES,
   parseOwnedCsv,
   resolveOwnedRows,
   type OwnedSeedRow,
@@ -16,6 +20,33 @@ import {
 const HEADER = "pop_number,name,status,acquired_at,acquired_city,acquired_country,notes";
 
 const row = (fields: string) => parseOwnedCsv(`${HEADER}\n${fields}`)[0];
+
+describe("owned statuses", () => {
+  it("lists the three statuses in display order, each with its pixel label", () => {
+    expect(OWNED_STATUSES).toEqual(["mine", "not_mine_anymore", "veronika"]);
+    expect(OWNED_STATUSES.map((status) => OWNED_STATUS_LABELS[status])).toEqual([
+      "MINE",
+      "NOT MINE ANYMORE",
+      "VERONIKA'S",
+    ]);
+  });
+
+  it("puts his and her figures on the shelf, and nothing else", () => {
+    expect(isOnTheShelf("mine")).toBe(true);
+    expect(isOnTheShelf("veronika")).toBe(true);
+    expect(isOnTheShelf("not_mine_anymore")).toBe(false);
+    expect(isOnTheShelf(null)).toBe(false);
+    expect(isOnTheShelf(undefined)).toBe(false);
+    expect(isOnTheShelf("MINE")).toBe(false);
+  });
+
+  it("knows which figures are Veronika's", () => {
+    expect(isVeronikas("veronika")).toBe(true);
+    expect(isVeronikas("mine")).toBe(false);
+    expect(isVeronikas("not_mine_anymore")).toBe(false);
+    expect(isVeronikas(null)).toBe(false);
+  });
+});
 
 describe("parseOwnedCsv", () => {
   it("maps a full row onto owned_figures columns", () => {
@@ -42,9 +73,15 @@ describe("parseOwnedCsv", () => {
     });
   });
 
+  it("accepts the veronika status", () => {
+    expect(row("718,Hula Stitch,veronika,2025-10-05,Amsterdam,NL,")).toMatchObject({
+      status: "veronika",
+    });
+  });
+
   it("rejects an unknown status", () => {
     expect(() => row("3,Spider-Man,sold,2023-12-28,Haifa,IL,")).toThrow(
-      /`status` must be one of mine, not_mine_anymore/,
+      /`status` must be one of mine, not_mine_anymore, veronika/,
     );
   });
 
@@ -170,9 +207,12 @@ describe("data/collection/owned.csv", () => {
     expect(rows.length).toBe(19);
   });
 
-  it("has 15 kept and 4 given away", () => {
+  it("has 15 kept, 1 given away and Veronika's 3 Stitches", () => {
     expect(rows.filter((figure) => figure.status === "mine").length).toBe(15);
-    expect(rows.filter((figure) => figure.status === "not_mine_anymore").length).toBe(4);
+    expect(rows.filter((figure) => figure.status === "not_mine_anymore").length).toBe(1);
+    expect(
+      rows.filter((figure) => figure.status === "veronika").map((figure) => figure.name),
+    ).toEqual(["Hula Stitch", "Leroy", "Stitch As Pineapple"]);
   });
 
   it("has an ISO date and a 2-letter country on every row", () => {

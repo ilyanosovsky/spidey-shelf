@@ -9,9 +9,9 @@
  *
  * Everything in this file is pure. The canvas lives in `src/lib/box-art-canvas.ts` (browser
  * only), the upload router in `src/app/api/uploadthing/core.ts`, and the panel that drives
- * both in `src/app/admin/collection/[id]/edit/box-art-panel.tsx`. Splitting it this way is
- * what makes the geometry, the URL parsing and the screen's state machine testable without
- * a DOM, a token or a network.
+ * both in `src/app/admin/box-art-panel.tsx` (the edit screen and Quick Add's details step
+ * both mount it). Splitting it this way is what makes the geometry, the URL parsing and the
+ * screen's state machine testable without a DOM, a token or a network.
  */
 
 /* ------------------------------------------------------------------ the fixed output */
@@ -344,7 +344,7 @@ export const BOX_ART_COPY = {
   normalizing: "NORMALIZING…",
   uploading: (percent: number) => `UPLOADING… ${clampPercent(percent)}%`,
   done: "BOX ART SECURED!",
-  placeholderNote: "No box art yet — the shelf is drawing a spider instead.",
+  placeholderNote: "No box art yet — the shelf is drawing a pixel stand-in instead.",
   hint: "ANY PHOTO — IT BECOMES 800×800 WEBP ON NAVY",
   notAdmin: "Not signed in as the owner.",
   unknownFigure: "That figure is not in the catalog.",

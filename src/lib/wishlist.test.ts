@@ -92,13 +92,57 @@ describe("orderWishlist", () => {
 });
 
 describe("wishlistTabs", () => {
-  it("is ALL plus the four buckets, each with its count", () => {
+  it("is ALL plus every bucket with its count, minus Veronika's empty lines", () => {
     expect(wishlistTabs(WISHLIST_FIXTURE)).toEqual([
       { value: "all", label: "ALL", count: 6 },
       { value: "peter", label: "PETER PARKER", count: 2 },
       { value: "spider_verse", label: "SPIDER-VERSE", count: 2 },
       { value: "friends_foes", label: "FRIENDS & FOES", count: 1 },
       { value: "other", label: "OTHER", count: 1 },
+    ]);
+  });
+
+  it("keeps a Spidey bucket at zero but drops a STITCH or GROGU tab with nothing in it", () => {
+    // Her lines have no hunt catalog — only what is already on the shelf is catalogued — so
+    // an always-zero tab would be noise. An empty PETER PARKER tab is a brag; it stays.
+    const tabs = wishlistTabs([]);
+    expect(tabs.map((tab) => tab.value)).toEqual([
+      "all",
+      "peter",
+      "spider_verse",
+      "friends_foes",
+      "other",
+    ]);
+    expect(tabs.every((tab) => tab.count === 0)).toBe(true);
+  });
+
+  it("shows a STITCH or GROGU tab as soon as an unowned one is catalogued", () => {
+    const tabs = wishlistTabs([
+      ...WISHLIST_FIXTURE,
+      catalogFigure({ slug: "stitch-x", name: "Stitch", category: "stitch" }),
+      catalogFigure({ slug: "grogu-x", name: "Grogu", category: "grogu" }),
+      catalogFigure({ slug: "grogu-y", name: "Grogu (Cookie)", category: "grogu" }),
+    ]);
+
+    expect(tabs.find((tab) => tab.value === "stitch")).toEqual({
+      value: "stitch",
+      label: "STITCH",
+      count: 1,
+    });
+    expect(tabs.find((tab) => tab.value === "grogu")).toEqual({
+      value: "grogu",
+      label: "GROGU",
+      count: 2,
+    });
+    // Still in taxonomy order: her lines sit between FRIENDS & FOES and OTHER.
+    expect(tabs.map((tab) => tab.value)).toEqual([
+      "all",
+      "peter",
+      "spider_verse",
+      "friends_foes",
+      "stitch",
+      "grogu",
+      "other",
     ]);
   });
 });

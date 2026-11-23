@@ -1,7 +1,13 @@
 import { normalizeScannedCode } from "./barcode/upc";
-import { FIGURE_CATEGORIES, type FigureCategory } from "./categories";
+import { FIGURE_CATEGORIES, isVeronikaCategory, type FigureCategory } from "./categories";
 import { resolveCountryCode } from "./countries";
-import { isRealIsoDate, looksLikeIsoDate, OWNED_STATUSES, type OwnedStatus } from "./collection";
+import {
+  isOnTheShelf,
+  isRealIsoDate,
+  looksLikeIsoDate,
+  OWNED_STATUSES,
+  type OwnedStatus,
+} from "./collection";
 import { parseReferenceSearchQuery } from "./collection-form";
 import { formatSightingDate } from "./format";
 
@@ -111,8 +117,8 @@ export const QUICK_ADD_ERRORS = {
   FIGURE_GONE: "THAT FIGURE IS NO LONGER IN THE CATALOG",
   NAME_REQUIRED: "THE FIGURE NEEDS A NAME",
   BAD_NUMBER: "POP NUMBER MUST BE DIGITS ONLY",
-  BAD_CATEGORY: "PICK ONE OF THE FOUR CATEGORIES",
-  BAD_STATUS: "STATUS MUST BE MINE OR NOT MINE ANYMORE",
+  BAD_CATEGORY: "PICK A CATEGORY FROM THE LIST",
+  BAD_STATUS: "PICK A STATUS FROM THE LIST",
   BAD_DATE: "DATE MUST BE YYYY-MM-DD",
   UNREAL_DATE: "THAT DATE DOES NOT EXIST",
   BAD_COUNTRY: "PICK A COUNTRY FROM THE LIST",
@@ -282,25 +288,27 @@ export interface DuplicateGuard {
 /**
  * Is this figure already in the vault?
  *
- * Only `mine` rows count. A figure logged as `not_mine_anymore` is one the owner had and
- * lost, and warning "already in the vault" about it would be a lie that costs him the entry —
- * buying the same Pop again after giving one away is exactly how this collection grows.
+ * Only rows that are on the shelf count — `mine` and `veronika` alike, because it is one
+ * shared shelf: a second Hula Stitch is a duplicate whether the first one is his or hers. A
+ * figure logged as `not_mine_anymore` is one that was had and lost, and warning "already in
+ * the vault" about it would be a lie that costs the entry — buying the same Pop again after
+ * giving one away is exactly how this collection grows.
  *
  * The increment target is the newest copy and `since` is the oldest, which is the pair the
  * screen needs: bump what he is holding now, but date the story from the first one.
  */
 export function findOwnedDuplicate(copies: readonly OwnedCopy[]): DuplicateGuard | null {
-  const mine = copies.filter((copy) => copy.status === "mine");
-  if (mine.length === 0) return null;
+  const onShelf = copies.filter((copy) => isOnTheShelf(copy.status));
+  if (onShelf.length === 0) return null;
 
-  const dated = [...mine].sort((a, b) => (a.acquiredAt ?? "").localeCompare(b.acquiredAt ?? ""));
+  const dated = [...onShelf].sort((a, b) => (a.acquiredAt ?? "").localeCompare(b.acquiredAt ?? ""));
   const first = dated[0];
   const latest = dated[dated.length - 1];
 
   return {
     targetId: latest.id,
     since: first.acquiredAt,
-    quantity: mine.reduce((total, copy) => total + Math.max(copy.quantity ?? 1, 1), 0),
+    quantity: onShelf.reduce((total, copy) => total + Math.max(copy.quantity ?? 1, 1), 0),
   };
 }
 
@@ -345,15 +353,24 @@ export interface QuickAddDefaults {
 
 /**
  * What the details step is already filled with before the owner touches it: today, the last
- * place, and `mine`. Every one of them is the answer nine times out of ten, and the tenth
- * time it is one field to change rather than four to type.
+ * place, and whose figure it is. Every one of them is the answer nine times out of ten, and
+ * the tenth time it is one field to change rather than four to type.
+ *
+ * The status follows the figure's category: Stitch and Grogu are Veronika's lines, so a
+ * figure from one of them is preselected as `veronika`; everything else is the owner's
+ * `mine`. `category` is `unknown` because it comes straight off a catalog row that may
+ * predate the taxonomy (NULL), which simply falls back to `mine`.
  */
-export function quickAddDefaults(today: string, place: SightingPlace | null): QuickAddDefaults {
+export function quickAddDefaults(
+  today: string,
+  place: SightingPlace | null,
+  category: unknown,
+): QuickAddDefaults {
   return {
     acquiredAt: today,
     acquiredCity: place?.city ?? "",
     acquiredCountry: place?.country ?? "",
-    status: "mine",
+    status: isVeronikaCategory(category) ? "veronika" : "mine",
   };
 }
 

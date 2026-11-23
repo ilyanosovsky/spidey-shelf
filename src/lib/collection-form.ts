@@ -86,7 +86,7 @@ export function parseOwnedFigureForm(fields: OwnedFigureFormFields): OwnedFigure
   const statusRaw = (fields.status ?? "").trim();
   const status = OWNED_STATUSES.find((value) => value === statusRaw);
   if (!status) {
-    errors.push("STATUS MUST BE MINE OR NOT MINE ANYMORE");
+    errors.push("PICK A STATUS FROM THE LIST");
   }
 
   const acquiredAt = (fields.acquiredAt ?? "").trim();

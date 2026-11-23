@@ -36,6 +36,15 @@ describe("VaultCard", () => {
     );
   });
 
+  it("marks Veronika's figure with her own pink chip", () => {
+    render(<VaultCard figure={ownedRow({ status: "veronika", category: "stitch" })} />);
+
+    const chip = screen.getByText("VERONIKA'S");
+    expect(chip).toHaveClass("border-pink", "text-pink");
+    expect(screen.getByText("STITCH")).toBeInTheDocument();
+    expect(screen.queryByText("MINE")).not.toBeInTheDocument();
+  });
+
   it("draws the pixel spider while the catalog row has no uploaded art", () => {
     render(<VaultCard figure={ownedRow()} />);
 

@@ -91,8 +91,9 @@ export const referenceFigures = pgTable(
     index("reference_figures_pop_number_idx").on(table.popNumber),
     index("reference_figures_upc_idx").on(table.upc),
     index("reference_figures_category_idx").on(table.category),
-    // A text column with a CHECK instead of a pg enum: adding a fifth bucket later is an
-    // ALTER of one constraint, not an irreversible type change.
+    // A text column with a CHECK instead of a pg enum: adding a bucket is an ALTER of one
+    // constraint, not an irreversible type change — exactly what Phase 14 did when STITCH
+    // and GROGU joined (six buckets, see src/lib/categories.ts and drizzle/0005).
     // `sql.raw` on purpose: a template value would become a bind parameter, and drizzle-kit
     // would emit `CHECK (category in ($1, $2, …))` into the migration file.
     check(
@@ -116,7 +117,11 @@ export const ownedFigures = pgTable(
     /** Used only while `reference_figure_id` is null. */
     customName: text("custom_name"),
     customNumber: integer("custom_number"),
-    /** `mine` / `not_mine_anymore` (Notion semantics). */
+    /**
+     * `mine` / `not_mine_anymore` (Notion semantics) / `veronika` (Phase 14: on the shared
+     * shelf, but Veronika's). Plain text with no CHECK; the app validates against
+     * `OWNED_STATUSES` in src/lib/collection.ts.
+     */
     status: text("status"),
     quantity: integer("quantity").default(1),
     /** Staging switch — lets the owner enter a figure before revealing it publicly. */

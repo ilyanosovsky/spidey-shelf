@@ -60,6 +60,33 @@ describe("PixelSpiderArt", () => {
     expect(container.querySelectorAll("rect").length).toBeGreaterThan(20);
   });
 
+  it("draws the spider for the owner's lines and its own sprite for each of Veronika's", () => {
+    const sprite = (category: Parameters<typeof PixelSpiderArt>[0]["category"]) => {
+      const { container, unmount } = render(<PixelSpiderArt {...BASE} category={category} />);
+      const kind = container.querySelector("svg")?.getAttribute("data-sprite");
+      unmount();
+      return kind;
+    };
+
+    expect(sprite("peter")).toBe("spider");
+    expect(sprite("other")).toBe("spider");
+    expect(sprite(null)).toBe("spider");
+    expect(sprite("stitch")).toBe("stitch");
+    expect(sprite("grogu")).toBe("grogu");
+  });
+
+  it("tints a line's sprite with its accent and keeps the number and the specks", () => {
+    const stitch = markup({ ...BASE, category: "stitch" });
+    const grogu = markup({ ...BASE, category: "grogu" });
+    expect(stitch).toContain(CATEGORY_ACCENT.stitch);
+    expect(grogu).toContain(CATEGORY_ACCENT.grogu);
+    expect(stitch).not.toBe(grogu);
+    expect(stitch).toContain("#1450");
+    expect(stitch).toBe(markup({ ...BASE, category: "stitch" }));
+    // Three specks at 0.35 opacity, same as the spider's panel.
+    expect(stitch.match(/opacity="0.35"/g)).toHaveLength(3);
+  });
+
   it("never prints a missing number as null", () => {
     const { container } = render(<PixelSpiderArt {...BASE} popNumber={null} />);
     expect(container.textContent).toContain("#—");

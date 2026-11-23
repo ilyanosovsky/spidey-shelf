@@ -8,6 +8,10 @@ import {
   buildSightingsMap,
   dominantCategory,
   sightingCoordinate,
+  sightingIconKind,
+  sightingIconOffsets,
+  sightingIconsLabel,
+  sightingIcons,
   sightingsMapCaption,
 } from "./sightings-map";
 
@@ -213,6 +217,85 @@ describe("buildSightingsMap with stored coordinates (Phase 13)", () => {
 
     expect(markers).toEqual([]);
     expect(uncharted).toEqual([]);
+  });
+});
+
+/** Phase 14 — Veronika's two lines get their own icon beside the owner's spider. */
+describe("sighting icons", () => {
+  const amsterdam = (slug: string, category: PublicShelfEntry["category"]) =>
+    shelfEntry({ slug, acquiredCity: "Amsterdam", acquiredCountry: "NL", category });
+
+  it("maps a category to its kind", () => {
+    expect(sightingIconKind("stitch")).toBe("stitch");
+    expect(sightingIconKind("grogu")).toBe("grogu");
+    expect(sightingIconKind("peter")).toBe("spider");
+    expect(sightingIconKind("other")).toBe("spider");
+    expect(sightingIconKind(null)).toBe("spider");
+  });
+
+  it("gives a mixed city three icons, in spider → stitch → grogu order, with their counts", () => {
+    const { markers } = buildSightingsMap([
+      amsterdam("g", "grogu"),
+      amsterdam("s", "stitch"),
+      amsterdam("p1", "peter"),
+      amsterdam("v", "spider_verse"),
+      amsterdam("p2", "peter"),
+    ]);
+
+    expect(markers).toHaveLength(1);
+    expect(markers[0].count).toBe(5);
+    expect(markers[0].icons).toEqual([
+      { kind: "spider", count: 3, category: "peter" },
+      { kind: "stitch", count: 1, category: "stitch" },
+      { kind: "grogu", count: 1, category: "grogu" },
+    ]);
+  });
+
+  it("gives a spider-only city exactly one icon, coloured as the whole city always was", () => {
+    const { markers } = buildSightingsMap(SHELF_FIXTURE);
+    const moscow = markers.find((marker) => marker.city === "MOSCOW");
+    expect(moscow?.icons).toEqual([{ kind: "spider", count: 2, category: moscow?.category }]);
+    for (const marker of markers) expect(marker.icons).toHaveLength(1);
+  });
+
+  it("never lists a kind that is absent", () => {
+    expect(sightingIcons(["stitch", "stitch"])).toEqual([
+      { kind: "stitch", count: 2, category: "stitch" },
+    ]);
+    expect(sightingIcons([])).toEqual([]);
+  });
+
+  it("colours the spider by the owner's figures only", () => {
+    expect(sightingIcons(["other", "stitch", "stitch", "stitch"])[0]).toEqual({
+      kind: "spider",
+      count: 1,
+      category: "other",
+    });
+  });
+
+  it("reads naturally for a screen reader", () => {
+    expect(
+      sightingIconsLabel([
+        { kind: "spider", count: 3, category: "peter" },
+        { kind: "stitch", count: 1, category: "stitch" },
+        { kind: "grogu", count: 1, category: "grogu" },
+      ]),
+    ).toBe("3 spiders, 1 Stitch, 1 Grogu");
+    expect(
+      sightingIconsLabel([
+        { kind: "spider", count: 1, category: "peter" },
+        { kind: "stitch", count: 2, category: "stitch" },
+        { kind: "grogu", count: 4, category: "grogu" },
+      ]),
+    ).toBe("1 spider, 2 Stitches, 4 Grogus");
+  });
+
+  it("centres the icon group on the city — one icon sits exactly on it", () => {
+    expect(sightingIconOffsets(1)).toEqual([0]);
+    const [left, middle, right] = sightingIconOffsets(3);
+    expect(middle).toBe(0);
+    expect(left).toBe(-right);
+    expect(right - middle).toBeGreaterThan(5.8); // wider than a plate: icons never overlap
   });
 });
 

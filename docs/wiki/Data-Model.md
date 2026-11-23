@@ -37,25 +37,34 @@ Indexes: unique on `slug`; btree on `pop_number`, `upc` and `category`; GIN on
 `product_line` (C), built with the `simple` text-search config — character names are proper
 nouns, so English stemming would only mangle them.
 
-### category — the taxonomy (ADR-009)
+### category — the taxonomy (ADR-009, extended by ADR-013)
 
-| Value          | UI label         | What lands in it                                                   |
-| -------------- | ---------------- | ------------------------------------------------------------------ |
-| `peter`        | `PETER PARKER`   | Peter's own Spider-Man (and unmasked Peter) — **the denominator**  |
-| `spider_verse` | `SPIDER-VERSE`   | every other web-slinger: Miles, Gwen, Spider-Ham, Mayday, 2099 …   |
-| `friends_foes` | `FRIENDS & FOES` | the people around him: Venom, Doc Ock, MJ, Aunt May, Deadpool …    |
-| `other`        | `OTHER`          | outside Spider-Man entirely (the owner's Stitches, Harry Potter …) |
+| Value          | UI label         | What lands in it                                                     |
+| -------------- | ---------------- | -------------------------------------------------------------------- |
+| `peter`        | `PETER PARKER`   | Peter's own Spider-Man (and unmasked Peter) — **the denominator**    |
+| `spider_verse` | `SPIDER-VERSE`   | every other web-slinger: Miles, Gwen, Spider-Ham, Mayday, 2099 …     |
+| `friends_foes` | `FRIENDS & FOES` | the people around him: Venom, Doc Ock, MJ, Aunt May, Deadpool …      |
+| `stitch`       | `STITCH`         | Veronika's first line: Lilo & Stitch figures (Phase 14)              |
+| `grogu`        | `GROGU`          | Veronika's second line: Grogu (Phase 14)                             |
+| `other`        | `OTHER`          | outside all of the above (the owner's Harry Potter, Little Prince …) |
 
-`text` + a `CHECK` constraint, not a Postgres enum: adding a fifth bucket is then an ALTER of
-one constraint instead of an enum type change that cannot be undone in a transaction. The
-column is `NOT NULL DEFAULT 'other'` — the default is for rows written by the admin UI; the
+The order is the display order everywhere (tabs, radar sectors, admin lists). `stitch` and
+`grogu` are also exported as `VERONIKA_CATEGORIES` (`isVeronikaCategory`): they drive the
+`VERONIKA'S` preselection in Quick Add and keep an empty tab off the wishlist.
+
+`text` + a `CHECK` constraint, not a Postgres enum: adding a bucket is then an ALTER of
+one constraint instead of an enum type change that cannot be undone in a transaction — which
+is exactly what `drizzle/0005_veronika_stitch_grogu.sql` did to go from four buckets to six.
+The column is `NOT NULL DEFAULT 'other'` — the default is for rows written by the admin UI; the
 seeder refuses a CSV row with a blank category rather than silently bucket it.
 
 **The invariant:** `counts_toward_total = (category = 'peter')`. It is what makes the LCD
 counter honest — "11 / 120 PETER PARKER COLLECTED" counts the same figures the tab does.
 Enforced by the CSV (a test asserts it over both files) rather than by a DB constraint, so a
-future one-off exception stays possible without a migration. Live today: 120 `peter`,
-60 `spider_verse`, 62 `friends_foes`, 5 `other` = 247 rows.
+future one-off exception stays possible without a migration. Live before Phase 14: 120 `peter`,
+60 `spider_verse`, 62 `friends_foes`, 5 `other` = 247 rows. Phase 14 moves the three Lilo &
+Stitch rows from `other` to `stitch` (so 2 `other`, 3 `stitch`, 0 `grogu` — no Grogu is in the
+catalog until one is added through Quick Add), the total staying at 247.
 
 The labels above are the single source of UI copy, exported from `src/lib/categories.ts`
 (`FIGURE_CATEGORY_LABELS`) — see Design-System.md.
@@ -141,28 +150,47 @@ What the seeder does with each column:
 
 ## owned_figures — the collection + acquisition story
 
-| Column                           | Type                  | Notes                                               |
-| -------------------------------- | --------------------- | --------------------------------------------------- |
-| id                               | uuid pk               |                                                     |
-| reference_figure_id              | uuid fk, **nullable** | figure can be added before it's catalogued          |
-| custom_name / custom_number      | text / int            | used only when reference is null                    |
-| status                           | text                  | `mine` / `not_mine_anymore` (from Notion semantics) |
-| quantity                         | int default 1         |                                                     |
-| is_public                        | bool default true     | stage before revealing                              |
-| is_favorite                      | bool default false    |                                                     |
-| acquired_at                      | date                  |                                                     |
-| acquired_city / acquired_country | text / char(2)        | travel log                                          |
-| acquired_lat / acquired_lng      | numeric               | where that city is — geocoded at write time         |
-| acquisition_type                 | text                  | bought / gift / trade                               |
-| gifted_by                        | text                  |                                                     |
-| story_title / story              | text                  | markdown                                            |
-| needs_story                      | bool default false    | "write it later" queue                              |
-| created_at / updated_at          | timestamptz           |                                                     |
+| Column                           | Type                  | Notes                                       |
+| -------------------------------- | --------------------- | ------------------------------------------- |
+| id                               | uuid pk               |                                             |
+| reference_figure_id              | uuid fk, **nullable** | figure can be added before it's catalogued  |
+| custom_name / custom_number      | text / int            | used only when reference is null            |
+| status                           | text                  | `mine` / `not_mine_anymore` / `veronika`    |
+| quantity                         | int default 1         |                                             |
+| is_public                        | bool default true     | stage before revealing                      |
+| is_favorite                      | bool default false    |                                             |
+| acquired_at                      | date                  |                                             |
+| acquired_city / acquired_country | text / char(2)        | travel log                                  |
+| acquired_lat / acquired_lng      | numeric               | where that city is — geocoded at write time |
+| acquisition_type                 | text                  | bought / gift / trade                       |
+| gifted_by                        | text                  |                                             |
+| story_title / story              | text                  | markdown                                    |
+| needs_story                      | bool default false    | "write it later" queue                      |
+| created_at / updated_at          | timestamptz           |                                             |
 
 `acquired_country` is `varchar(2)` (Postgres `char(2)` blank-pads, which bites on
 comparisons). The FK is `ON DELETE SET NULL` — deleting a catalog row must never delete the
 memory of owning the figure. Indexes: `reference_figure_id` (the view's join) and
 `created_at` (the "new sightings" ribbon).
+
+### status — whose figure it is, and whether it is still here (ADR-013)
+
+| Value              | UI label           | Meaning                                                      |
+| ------------------ | ------------------ | ------------------------------------------------------------ |
+| `mine`             | `MINE`             | on the shelf, the owner's                                    |
+| `not_mine_anymore` | `NOT MINE ANYMORE` | left the shelf; the row keeps its story                      |
+| `veronika`         | `VERONIKA'S`       | on the shelf, Veronika's (Phase 14); framed pink on the site |
+
+Plain `text` with **no `CHECK`** — the app validates against `OWNED_STATUSES` and the labels
+live in `OWNED_STATUS_LABELS` (`src/lib/collection.ts`), so adding `veronika` needed no DDL.
+It is a status and not an `owner` column because ownership and presence are one question: a
+figure is on the shelf (and then it is someone's) or it is gone. The honest cost: there is no
+"was Veronika's" state, so a figure of hers that leaves the shelf becomes `not_mine_anymore`
+and loses the pink frame.
+
+`isOnTheShelf(status)` (`mine` or `veronika`) is the rule three places now share: the Quick
+Add duplicate guard, TOTAL VAULT VALUE and the console's FIGURES ON THE SHELF counter. A NULL
+status is not on the shelf for those three — but the view below still counts it as owned.
 
 ### `acquired_lat` / `acquired_lng` are in use since Phase 13 — and mostly still NULL
 
@@ -219,8 +247,11 @@ retyped. Run it **after** `npm run db:seed`.
 - The seeder **never deletes**: rows added through the admin are untouched, and dropping a
   line from the CSV leaves the figure (and its story) in the database.
 
-What the seed run produces: 19 rows — 15 `mine`, 4 `not_mine_anymore`, 0 without a catalog row;
-by category 11 `peter`, 1 `spider_verse`, 2 `friends_foes`, 5 `other`. **Live today the shelf
+What the seed run produced originally: 19 rows — 15 `mine`, 4 `not_mine_anymore`, 0 without a
+catalog row; by category 11 `peter`, 1 `spider_verse`, 2 `friends_foes`, 5 `other`. Since
+Phase 14 the CSVs say 15 `mine`, 1 `not_mine_anymore` (the Little Prince), 3 `veronika` (the
+three Lilo & Stitch figures); by category 11 `peter`, 1 `spider_verse`, 2 `friends_foes`,
+3 `stitch`, 2 `other`. **Live today the shelf
 holds 20**: the twentieth was added through Quick Add from a phone in Kuala Lumpur on
 2026-08-07, and it is the row that motivated Phase 13 (ADR-012).
 
@@ -292,7 +323,8 @@ by it.
 
 - Powers public search verdicts AND stats from one definition.
 - Its `is_owned = false` rows ARE the wishlist — no extra table.
-- Because `owned_count` excludes `not_mine_anymore`, the view alone cannot tell "he never
+- Because `owned_count` excludes `not_mine_anymore` (and counts `veronika` as owned, which is
+  why Phase 14 needed no change to the view), the view alone cannot tell "he never
   had it" from "he had it once". Public search adds that second signal itself, as an
   `exists()` over the public shelf rows (`src/lib/catalog-queries.ts`) — which is what turns
   a coral `NOT OWNED YET` into `NOT OWNED · was in the collection once`.

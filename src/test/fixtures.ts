@@ -88,6 +88,24 @@ export const SHELF_FIXTURE: PublicShelfEntry[] = [
 ];
 
 /**
+ * One of Veronika's figures as it stands on the shelf since Phase 14: her own status and her
+ * own bucket. Real figure — Hula Stitch, picked up in Amsterdam. Kept out of
+ * `SHELF_FIXTURE` on purpose, so the many counts asserted against that fixture stay put and
+ * each Veronika rule is tested where it is introduced.
+ */
+export const VERONIKA_SHELF_ENTRY: PublicShelfEntry = shelfEntry({
+  slug: "pop-disney-lilo-stitch-hula-stitch-718",
+  name: "Hula Stitch",
+  popNumber: 718,
+  category: "stitch",
+  productLine: "Pop! Disney: Lilo & Stitch",
+  status: "veronika",
+  acquiredAt: "2025-10-05",
+  acquiredCity: "Amsterdam",
+  acquiredCountry: "NL",
+});
+
+/**
  * A catalog row as the public search and the wishlist see it — no `needs_review`, no
  * `source`, nothing a visitor may not see. Real figures again: #334 is the GameStop
  * Gamerverse Spider-Man nobody owns, which is the design brief's own NOT OWNED example.

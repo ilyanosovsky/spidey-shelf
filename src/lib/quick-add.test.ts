@@ -19,6 +19,7 @@ import {
   parseQuickAddIntent,
   parseQuickAddStep,
   parseUuidParam,
+  QUICK_ADD_ERRORS,
   quickAddDefaults,
   quickAddErrorMessages,
   quickAddErrorParam,
@@ -102,6 +103,13 @@ describe("error codes", () => {
       "DATE MUST BE YYYY-MM-DD",
       "PICK A COUNTRY FROM THE LIST",
     ]);
+  });
+
+  it("does not enumerate the options in the category and status errors", () => {
+    // Six categories and three statuses no longer fit in one pixel-font sentence — and a
+    // message that lists them is a message that rots the next time one is added.
+    expect(QUICK_ADD_ERRORS.BAD_CATEGORY).toBe("PICK A CATEGORY FROM THE LIST");
+    expect(QUICK_ADD_ERRORS.BAD_STATUS).toBe("PICK A STATUS FROM THE LIST");
   });
 
   it("drops anything that is not a known code — the URL never paints its own text", () => {
@@ -194,6 +202,28 @@ describe("the duplicate guard", () => {
     expect(findOwnedDuplicate([copy({ status: "not_mine_anymore" })])).toBeNull();
   });
 
+  it("warns about a figure that is Veronika's — it is one shared shelf", () => {
+    const guard = findOwnedDuplicate([
+      copy({ id: "hers", status: "veronika", acquiredAt: "2025-10-05" }),
+    ]);
+
+    expect(guard).toEqual({ targetId: "hers", since: "2025-10-05", quantity: 1 });
+  });
+
+  it("counts his and her copies together and ignores the one that left", () => {
+    const guard = findOwnedDuplicate([
+      copy({ id: "gone", status: "not_mine_anymore", acquiredAt: "2023-01-01", quantity: 5 }),
+      copy({ id: "his", status: "mine", acquiredAt: "2025-04-12" }),
+      copy({ id: "hers", status: "veronika", acquiredAt: "2026-01-05", quantity: 2 }),
+    ]);
+
+    expect(guard).toEqual({ targetId: "hers", since: "2025-04-12", quantity: 3 });
+  });
+
+  it("does not count a row with no status (an unfinished quick-add)", () => {
+    expect(findOwnedDuplicate([copy({ status: null })])).toBeNull();
+  });
+
   it("bumps the newest copy but dates the vault from the first", () => {
     const guard = findOwnedDuplicate([
       copy({ id: "old", acquiredAt: "2025-04-12" }),
@@ -251,7 +281,7 @@ describe("smart defaults", () => {
 
   it("has nothing to offer on an empty shelf", () => {
     expect(lastUsedPlace([])).toBeNull();
-    expect(quickAddDefaults("2026-08-06", null)).toEqual({
+    expect(quickAddDefaults("2026-08-06", null, "peter")).toEqual({
       acquiredAt: "2026-08-06",
       acquiredCity: "",
       acquiredCountry: "",
@@ -260,12 +290,23 @@ describe("smart defaults", () => {
   });
 
   it("fills today and the last place, and preselects MINE", () => {
-    expect(quickAddDefaults("2026-08-06", { city: "Moscow", country: "RU" })).toEqual({
+    expect(quickAddDefaults("2026-08-06", { city: "Moscow", country: "RU" }, "peter")).toEqual({
       acquiredAt: "2026-08-06",
       acquiredCity: "Moscow",
       acquiredCountry: "RU",
       status: "mine",
     });
+  });
+
+  it("preselects VERONIKA'S for a Stitch or a Grogu", () => {
+    expect(quickAddDefaults("2026-08-06", null, "stitch").status).toBe("veronika");
+    expect(quickAddDefaults("2026-08-06", null, "grogu").status).toBe("veronika");
+  });
+
+  it("preselects MINE for every other bucket and for an uncategorized row", () => {
+    for (const category of ["peter", "spider_verse", "friends_foes", "other", null, undefined]) {
+      expect(quickAddDefaults("2026-08-06", null, category).status, String(category)).toBe("mine");
+    }
   });
 });
 
@@ -383,6 +424,13 @@ describe("the details form", () => {
     expect(parseQuickAddIntent(undefined)).toBe("save");
     expect(parseQuickAddIntent("nonsense")).toBe("save");
     expect(parseQuickAddIntent(" SKIP ")).toBe("skip");
+  });
+
+  it("accepts each of the three statuses", () => {
+    for (const status of ["mine", "not_mine_anymore", "veronika"] as const) {
+      const parsed = parseQuickAddDetailsForm({ ...base, status });
+      expect(parsed.ok && parsed.value.status, status).toBe(status);
+    }
   });
 
   it("refuses a figure that is not a uuid, a bad status, a bad date and a bad country", () => {
