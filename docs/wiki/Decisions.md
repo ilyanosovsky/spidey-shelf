@@ -311,4 +311,5 @@ figures framed in pink on the shelf and drawn with their own icons on the sighti
   All three were judged cheaper than a second column for a two-person shelf.
 - **Rollout order matters.** Until `npm run db:migrate` is run against the live database, the
   new code runs but creating a `stitch` or `grogu` figure fails the old category `CHECK`, and
-  the existing rows keep their old `other` / `not_mine_anymore` state.
+  the existing rows keep their old `other` / `not_mine_anymore` state. It was run on
+  2026-11-23, the day PR #17 merged.
