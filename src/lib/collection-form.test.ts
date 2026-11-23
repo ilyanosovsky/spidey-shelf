@@ -101,10 +101,15 @@ describe("parseOwnedFigureForm", () => {
     });
   });
 
+  it("accepts VERONIKA'S as a status", () => {
+    const parsed = parseOwnedFigureForm({ ...validFields, status: "veronika" });
+    expect(parsed.ok && parsed.value.status).toBe("veronika");
+  });
+
   it("rejects an unknown status", () => {
     expect(parseOwnedFigureForm({ ...validFields, status: "sold" })).toMatchObject({
       ok: false,
-      errors: ["STATUS MUST BE MINE OR NOT MINE ANYMORE"],
+      errors: ["PICK A STATUS FROM THE LIST"],
     });
   });
 

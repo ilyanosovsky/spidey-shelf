@@ -85,6 +85,9 @@ What that decision rests on:
 carries a `category`: `peter` · `spider_verse` · `friends_foes` · `other`, labelled
 `PETER PARKER` · `SPIDER-VERSE` · `FRIENDS & FOES` · `OTHER` in the UI.
 
+> **Extended to six buckets by ADR-013** (`stitch` and `grogu` joined on 2026-11-23). The text
+> below is the decision as it was made and is left as written.
+
 - **Why buckets at all.** "Spider-Man figures" was never one thing: the shelf mixes Peter's
   own suits with Miles and Gwen, with Venom and Doc Ock, and with figures that have nothing
   to do with Spider-Man. One flat list makes the counter meaningless and the tabs arbitrary.
@@ -238,3 +241,74 @@ travel map.
   — it is a bulk upsert of the whole CSV, and a loop of network calls inside a seeder is the
   "heavy use" the policy names; the script covers that job with the 1-per-second spacing a bulk
   pass actually needs.
+
+## ADR-013 · Veronika's figures: a third status and two categories, not an owner column
+
+**2026-11-23 · accepted** (owner's call, decided in chat). The owner still collects
+Spider-Man. His partner Veronika now collects alongside him — only two lines, Stitch and
+Grogu — and her figures already stand on the same shelf: the three Lilo & Stitch Pops in the
+seed (Hula Stitch, Leroy, Stitch As Pineapple) had been entered as `not_mine_anymore`, the only
+way the data model had to say "on the shelf, but not his". The owner asked for three things:
+the box-art photo in the Quick Add flow itself (it could only be uploaded through EDIT, after
+the figure was saved), a third ownership option plus categories for her two lines, and her
+figures framed in pink on the shelf and drawn with their own icons on the sightings map.
+
+- **A third value of `owned_figures.status`, not an owner column.** `OWNED_STATUSES` is now
+  `mine` · `not_mine_anymore` · `veronika`, labelled `MINE` · `NOT MINE ANYMORE` ·
+  `VERONIKA'S`. Ownership and presence are one question here: a figure is on the shelf (and then
+  it is someone's) or it is gone. A separate `owner` column would have made that two questions
+  with four combinations, one of them (hers, and gone) with no UI and no counter for it, and it
+  would have been a migration to a view and a query set that all already switch on `status`.
+  (Rejected alternative: `owner` column. It is the more extensible model if a third collector
+  ever appears, and that is the day to revisit it.)
+- **No DDL for the status.** `status` is a plain `text` column with no `CHECK`; the app
+  validates against `OWNED_STATUSES`. The `catalog_with_ownership` view already counts every
+  status except `not_mine_anymore` as owned, so a `veronika` row makes its catalog figure
+  OWNED in search with no change to the view.
+- **Two categories, six buckets.** `FIGURE_CATEGORIES` is now `peter` · `spider_verse` ·
+  `friends_foes` · `stitch` · `grogu` · `other`, with `other` kept last as the catch-all.
+  `counts_toward_total ⇔ category = 'peter'` is untouched, so "11 / 120 PETER PARKER
+  COLLECTED" still counts exactly the figures it counted. Because the radar and the tabs are
+  both built from `FIGURE_CATEGORIES`, the WEB RADAR has six sectors and the home shelf gained
+  STITCH and GROGU tabs without a line of per-category layout code. `stitch` and `grogu` are
+  also exported as `VERONIKA_CATEGORIES`, which is what drives the smart default (a figure from
+  one of them is preselected `VERONIKA'S` in Quick Add) and the wishlist (see below).
+- **The `CHECK` is widened by migration `0005_veronika_stitch_grogu.sql`.** The category
+  constraint on `reference_figures` is dropped and recreated with six values — the "one
+  `ALTER` rather than an enum change" that ADR-009 chose `text` + `CHECK` for. After the
+  generated statements the file carries a hand-written, idempotent backfill: `other` rows that
+  are Stitch or Grogu are recategorised, and `not_mine_anymore` rows in those two categories
+  become `veronika` (that status was the workaround for her figures). `mine` rows are
+  deliberately not touched — a Stitch logged as `mine` is the owner's own call. The seed CSVs
+  (`data/catalog/others-manual.csv`, `data/collection/owned.csv`) were updated to the same end
+  state, so a fresh seed and a migrated database agree.
+- **"Is mine" became "is on the shelf" in three places.** The Quick Add duplicate guard
+  (`findOwnedDuplicate`), TOTAL VAULT VALUE (`countsTowardValue` in `src/lib/finances.ts`) and
+  the console's FIGURES ON THE SHELF counter (`getVaultStats().onShelf`, renamed from `mine`)
+  now ask `isOnTheShelf(status)` — `mine` or `veronika`. It is one shelf and one vault: a
+  second Hula Stitch is a duplicate whether the first is his or hers, and her figures are part
+  of what the shelf is worth. This is a deliberate change of meaning and the one to remember
+  when reading older text in this log that says "only `mine`".
+- **Her figures are told apart by pink and by an icon, never by colour alone.** `FigureCard`
+  and the figure page frame a `veronika` row in the new `--color-pink` with a `VERONIKA'S` chip
+  (not dimmed, unlike `not_mine_anymore` — the figure is on the shelf). On the sightings map a
+  city shows one icon per kind found there (spider, Stitch, Grogu) with per-kind counts, and
+  Stitch and Grogu figures without box art get a pixel Stitch or Grogu instead of the spider.
+  The sprites are drawn for this site in the existing hand, not copied artwork.
+- **The wishlist hides an empty Veronika tab.** Her lines have no hunt catalog — only figures
+  that are on the shelf get catalogued — so a permanent STITCH `0` tab would be noise. It
+  appears the moment an unowned Stitch or Grogu is catalogued.
+- **Box art moved into Quick Add.** `BoxArtPanel` moved to `src/app/admin/box-art-panel.tsx`
+  and is mounted on the details step as well as on the edit screen. It uploads immediately to
+  the catalog row (which exists from the moment the figure is picked), with no SAVE, so nothing
+  in the sighting form has to wait for it.
+- **The honest trade-off.** Because ownership is a status, a figure of hers that later leaves
+  the shelf can only become `not_mine_anymore` — there is no "was Veronika's" state — so it
+  loses the pink frame and reads as a plain departed figure. The same single-status model means
+  a figure cannot be both: a Stitch the two of them own jointly is whichever one the form says.
+  The backfill has a matching imperfection: a Stitch that really had left the shelf and was
+  filed as `not_mine_anymore` is moved to `veronika`, and is one EDIT away from being put back.
+  All three were judged cheaper than a second column for a two-person shelf.
+- **Rollout order matters.** Until `npm run db:migrate` is run against the live database, the
+  new code runs but creating a `stitch` or `grogu` figure fails the old category `CHECK`, and
+  the existing rows keep their old `other` / `not_mine_anymore` state.

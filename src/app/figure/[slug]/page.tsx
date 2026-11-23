@@ -12,6 +12,7 @@ import { categoryAccent } from "@/components/pixel-spider-art";
 import { PublicNav } from "@/components/public-nav";
 import { ToothedBanner } from "@/components/toothed-banner";
 import { figureCategoryLabel } from "@/lib/categories";
+import { isVeronikas, OWNED_STATUS_LABELS } from "@/lib/collection";
 import { isAdminSession } from "@/lib/dal";
 import { getMarketPanel } from "@/lib/ebay/market";
 import { MARKET_COPY } from "@/lib/ebay/snapshot";
@@ -86,6 +87,9 @@ export default async function FigurePage({ params }: { params: Promise<{ slug: s
   const { current, previous, next } = found;
   const accent = categoryAccent(current.category);
   const gone = hasLeftTheShelf(current);
+  const hers = isVeronikas(current.status);
+  // Mirrors the shelf card: her figures are framed in pink, the category chip keeps its hue.
+  const frame = hers ? "var(--color-pink)" : accent;
   const variants = (current.variantFlags ?? []).filter(Boolean);
 
   // Awaited inside the render: the panel is part of the page, not a hole that fills in later.
@@ -108,7 +112,7 @@ export default async function FigurePage({ params }: { params: Promise<{ slug: s
     >
       <PublicNav pathname={`/figure/${current.slug}`} isAdmin={isAdmin} />
 
-      <PixelFrame as="header" className="p-5" accent={accent}>
+      <PixelFrame as="header" className="p-5" accent={frame}>
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
           <div className="mx-auto w-full max-w-[260px] sm:mx-0 sm:w-2/5 sm:shrink-0">
             <BoxArt
@@ -155,13 +159,7 @@ export default async function FigurePage({ params }: { params: Promise<{ slug: s
               ))}
             </div>
 
-            <p
-              className={`font-pixel mt-4 inline-block rounded border-2 px-2 py-1 text-[10px] leading-relaxed tracking-wider ${
-                gone ? "border-amber text-amber" : "border-pop-green text-pop-green"
-              }`}
-            >
-              {gone ? "NOT MINE ANYMORE" : "ON THE SHELF"}
-            </p>
+            <OwnershipChip gone={gone} hers={hers} />
           </div>
         </div>
       </PixelFrame>
@@ -234,6 +232,26 @@ export default async function FigurePage({ params }: { params: Promise<{ slug: s
         </PixelButtonLink>
       </div>
     </main>
+  );
+}
+
+/**
+ * Whose the figure is, in words: ON THE SHELF (green), NOT MINE ANYMORE (amber) or, since
+ * Phase 14, VERONIKA'S (pink — the same pink as the frame around it and the shelf card).
+ */
+function OwnershipChip({ gone, hers }: { gone: boolean; hers: boolean }) {
+  const [tone, label] = hers
+    ? ["border-pink text-pink", OWNED_STATUS_LABELS.veronika]
+    : gone
+      ? ["border-amber text-amber", OWNED_STATUS_LABELS.not_mine_anymore]
+      : ["border-pop-green text-pop-green", "ON THE SHELF"];
+
+  return (
+    <p
+      className={`font-pixel mt-4 inline-block rounded border-2 px-2 py-1 text-[10px] leading-relaxed tracking-wider ${tone}`}
+    >
+      {label}
+    </p>
   );
 }
 

@@ -1,4 +1,5 @@
 import { formatMoney, type StoredSnapshot } from "./ebay/snapshot";
+import { isOnTheShelf } from "./collection";
 import { type PublicShelfEntry } from "./showcase";
 
 /**
@@ -12,7 +13,9 @@ import { type PublicShelfEntry } from "./showcase";
  * Three rules decide which rows are money, and each one is a claim the owner would have to
  * defend to a friend reading the page:
  *
- *   1. **Only `mine`.** A figure that left the shelf keeps its card, its story and its place
+ *   1. **Only what is on the shelf** — `mine` or `veronika`. It is one shared shelf, so
+ *      Veronika's Stitches and Grogus are part of what it is worth just like the owner's
+ *      Spider-Men. A figure that left the shelf keeps its card, its story and its place
  *      in the counters — the collection is about the hunt — but it is not part of what the
  *      shelf is worth today. Neither is a row with no status at all: that is a half-finished
  *      quick-add, and an unfinished sighting is not a valuation. (This is deliberately
@@ -41,7 +44,7 @@ export interface FinanceFigure {
 
 /** Everything the FINANCES section renders. `null` when there is nothing honest to show. */
 export interface CollectionFinances {
-  /** Σ median × quantity over the priced `mine` rows, in cents. */
+  /** Σ median × quantity over the priced on-the-shelf rows (`mine` + `veronika`), in cents. */
   totalCents: number;
   /** `~$412`. */
   totalLabel: string;
@@ -62,7 +65,7 @@ export interface CollectionFinances {
  * uses: the query is the mechanism, this is the place the rule is written down and tested.
  */
 export function countsTowardValue(entry: PublicShelfEntry): boolean {
-  return entry.isPublic === true && entry.status === "mine";
+  return entry.isPublic === true && isOnTheShelf(entry.status);
 }
 
 /** A quantity column that has been NULL since Phase 1 means one figure, not none. */

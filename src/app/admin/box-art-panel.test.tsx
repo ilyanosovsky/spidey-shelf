@@ -92,6 +92,27 @@ describe("BoxArtPanel", () => {
     expect(screen.getByRole("img", { name: "Spider-Man box art" })).toBeInTheDocument();
   });
 
+  it("can leave the picture to the screen around it (Quick Add's details step)", async () => {
+    const { container } = render(<BoxArtPanel {...FIGURE} imagePath={ART} preview={false} />);
+
+    // No second copy of the art — the step's figure summary is the picture there…
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(container.querySelector(".aspect-square")).toBeNull();
+    // …but the panel still knows the row has one, and the whole upload run still works.
+    expect(screen.getByRole("button", { name: BOX_ART_COPY.replace })).toBeInTheDocument();
+
+    await pick(jpeg());
+    await waitFor(() => expect(startUpload).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      await hookOptions?.onClientUploadComplete?.([
+        { serverData: { imagePath: ART, slug: FIGURE.slug } },
+      ] as never);
+    });
+
+    expect(screen.getByText(BOX_ART_COPY.done)).toBeInTheDocument();
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
   it("walks NORMALIZING → UPLOADING n% → BOX ART SECURED!", async () => {
     render(<BoxArtPanel {...FIGURE} imagePath={null} />);
 

@@ -13,6 +13,10 @@
   --color-lcd-bg: #1e3b23;
   --color-lcd-glow: #8bc34a;
   --color-ink-px: #101418;
+  /* Phase 14 — Veronika's frame (pink) and the accents of her two lines. */
+  --color-pink: #ff7eb6;
+  --color-stitch-blue: #58c4f5;
+  --color-grogu-green: #b5cf8f;
 
   --font-pixel: var(--font-press-start), monospace;
   --font-body: var(--font-geist-sans), system-ui, sans-serif;

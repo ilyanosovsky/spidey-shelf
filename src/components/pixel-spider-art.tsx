@@ -1,5 +1,7 @@
 import { DEFAULT_FIGURE_CATEGORY, isFigureCategory, type FigureCategory } from "@/lib/categories";
+import { lineSpriteRects, figureSpriteKind } from "@/lib/figure-sprites";
 import { formatPopNumber } from "@/lib/format";
+import { type PixelTone } from "@/lib/pixel-grid";
 import { SPIDER_GRID, speckCellsFor, spiderSpriteRects } from "@/lib/spider-sprite";
 
 /**
@@ -18,6 +20,11 @@ import { SPIDER_GRID, speckCellsFor, spiderSpriteRects } from "@/lib/spider-spri
  *
  * The sprite's geometry lives in `src/lib/spider-sprite.ts` since Phase 8 — the PWA icons and
  * the favicon are the same animal, and two hand-drawn copies of one spider drift.
+ *
+ * Since Phase 14 a figure from one of Veronika's lines (`stitch`, `grogu`) gets that line's
+ * 16×16 sprite instead of the spider — a spider on her figure's card would be plainly wrong.
+ * Those sprites live in `src/lib/figure-sprites.ts`; the panel, the number and the specks are
+ * the same for everyone.
  */
 
 /** One hue per bucket, straight from the tokens — never a raw hex in a component. */
@@ -25,11 +32,28 @@ export const CATEGORY_ACCENT: Record<FigureCategory, string> = {
   peter: "var(--color-coral)",
   spider_verse: "var(--color-pop-green)",
   friends_foes: "var(--color-amber)",
+  stitch: "var(--color-stitch-blue)",
+  grogu: "var(--color-grogu-green)",
   other: "var(--color-blue-frame)",
 };
 
 export function categoryAccent(category: unknown): string {
   return CATEGORY_ACCENT[isFigureCategory(category) ? category : DEFAULT_FIGURE_CATEGORY];
+}
+
+/**
+ * A sprite tone (`src/lib/pixel-grid.ts`) → the token it is painted with. `accent` is the
+ * caller's category hue; the rest are fixed, so an eye is the same ink on every figure.
+ * Shared with the SIGHTINGS MAP, whose 5×5 sprites use the same tones.
+ */
+const TONE_TOKENS: Record<Exclude<PixelTone, "accent">, string> = {
+  ink: "var(--color-ink-px)",
+  cream: "var(--color-cream)",
+  pink: "var(--color-pink)",
+};
+
+export function toneFill(tone: PixelTone, accent: string): string {
+  return tone === "accent" ? accent : TONE_TOKENS[tone];
 }
 
 /** Re-exported so the sprite's one public entry point stays this component's module. */
@@ -54,6 +78,7 @@ export function PixelSpiderArt({
 }: PixelSpiderArtProps) {
   const accent = categoryAccent(category);
   const specks = speckCellsFor(slug);
+  const kind = figureSpriteKind(category);
 
   return (
     // Decorative: the card and the page both carry the figure's name and number as text.
@@ -65,6 +90,7 @@ export function PixelSpiderArt({
         viewBox={`0 0 ${SPIDER_GRID} ${SPIDER_GRID}`}
         shapeRendering="crispEdges"
         focusable="false"
+        data-sprite={kind}
         className={size === "hero" ? "w-3/5 max-w-[220px]" : "w-4/5 max-w-[120px]"}
         style={{ color: accent }}
       >
@@ -80,17 +106,29 @@ export function PixelSpiderArt({
           />
         ))}
 
-        {spiderSpriteRects().map((rect) => (
-          <rect
-            key={`${rect.part}-${rect.x}-${rect.y}`}
-            x={rect.x}
-            y={rect.y}
-            width={rect.width}
-            height={rect.height}
-            fill={rect.part === "eye" ? undefined : "currentColor"}
-            style={rect.part === "eye" ? { fill: "var(--color-cream)" } : undefined}
-          />
-        ))}
+        {kind === "spider"
+          ? spiderSpriteRects().map((rect) => (
+              <rect
+                key={`${rect.part}-${rect.x}-${rect.y}`}
+                x={rect.x}
+                y={rect.y}
+                width={rect.width}
+                height={rect.height}
+                fill={rect.part === "eye" ? undefined : "currentColor"}
+                style={rect.part === "eye" ? { fill: "var(--color-cream)" } : undefined}
+              />
+            ))
+          : lineSpriteRects(kind).map((rect) => (
+              <rect
+                key={`${rect.tone}-${rect.x}-${rect.y}`}
+                x={rect.x}
+                y={rect.y}
+                width={rect.width}
+                height={rect.height}
+                fill={rect.tone === "accent" ? "currentColor" : undefined}
+                style={rect.tone === "accent" ? undefined : { fill: toneFill(rect.tone, accent) }}
+              />
+            ))}
       </svg>
 
       <p

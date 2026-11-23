@@ -1,17 +1,26 @@
 import { graticule, hairline, mapBounds, markerCell, viewBoxOf, type MapBounds } from "@/lib/geo";
-import { sightingsMapCaption, type CitySighting, type SightingsMapData } from "@/lib/sightings-map";
+import { MARKER_GRID, markerSpriteRects } from "@/lib/marker-sprites";
+import {
+  sightingIconsLabel,
+  sightingIconOffsets,
+  sightingsMapCaption,
+  type CitySighting,
+  type SightingIcon,
+  type SightingsMapData,
+} from "@/lib/sightings-map";
 import { WORLD_LAND_PATH } from "@/lib/world-land";
 
-import { CATEGORY_ACCENT } from "./pixel-spider-art";
+import { CATEGORY_ACCENT, toneFill } from "./pixel-spider-art";
 
 /**
  * The travel map: where the collection was actually found.
  *
  * The reference gadget's world screen — dark navy ground, a thin graticule, and pixel spiders
- * sitting on the cities. Nothing here is a map library: the landmass is one SVG path in
- * `src/lib/world-land.ts` (Natural Earth 110m, public domain, rounded to whole degrees so the
- * coastlines step), the projection is `x = lng + 180 / y = 90 - lat`, and the crop is a
- * viewBox computed from the markers themselves. That is the whole trick — equirectangular is
+ * sitting on the cities (and, since Phase 14, a pixel Stitch and a pixel Grogu beside them —
+ * one sprite per kind found in a city). Nothing here is a map library: the landmass is one
+ * SVG path in `src/lib/world-land.ts` (Natural Earth 110m, public domain, rounded to whole
+ * degrees so the coastlines step), the projection is `x = lng + 180 / y = 90 - lat`, and the
+ * crop is a viewBox computed from the markers themselves. That is the whole trick — equirectangular is
  * linear, so "zoom to the places he has been" costs one `viewBox` attribute.
  *
  * A server component with no props but data, like everything else on the public site.
@@ -72,7 +81,7 @@ export function SightingsMap({
          * Batumi always will — the busier one ends up on top rather than behind.
          */}
         {[...data.markers].reverse().map((marker) => (
-          <SpiderMarker key={marker.key} marker={marker} cell={cell} bounds={bounds} />
+          <CityMarker key={marker.key} marker={marker} cell={cell} bounds={bounds} />
         ))}
       </svg>
 
@@ -84,24 +93,16 @@ export function SightingsMap({
 }
 
 /**
- * The 5×5 spider — `PixelSpiderArt`'s 16×16 sprite boiled down to what survives at 25px.
+ * One city: a 5×5 sprite per kind found there, side by side, the group centred on the point.
  *
- * Six leg cells at the corners and mid-height, a 3×3 body, two cream eyes. Everything below
- * five cells stops reading as a spider and starts reading as a smudge, and everything above
- * it makes nine markers on one map touch each other.
+ * The sprites come from `src/lib/marker-sprites.ts` — the spider, and since Phase 14 the
+ * sprites of Veronika's two lines — and the layout from `sightingIconOffsets`, so a city with
+ * only spiders is one sprite at offset 0, drawn exactly as it was before there were kinds.
+ *
+ * Plates and sprites first, badges last: a badge hangs off its icon's shoulder towards the
+ * next icon, and drawn in between it would be covered by its neighbour's plate.
  */
-const MARKER_LEGS: readonly (readonly [number, number])[] = [
-  [0, 0],
-  [4, 0],
-  [0, 2],
-  [4, 2],
-  [0, 4],
-  [4, 4],
-];
-
-const MARKER_EYES: readonly number[] = [1, 3];
-
-function SpiderMarker({
+function CityMarker({
   marker,
   cell,
   bounds,
@@ -110,12 +111,55 @@ function SpiderMarker({
   cell: number;
   bounds: MapBounds;
 }) {
-  const accent = CATEGORY_ACCENT[marker.category];
-  const left = marker.point.x - 2.5 * cell;
-  const top = marker.point.y - 2.5 * cell;
+  const offsets = sightingIconOffsets(marker.icons.length);
+  const placed = marker.icons.map((icon, index) => ({
+    icon,
+    left: marker.point.x + offsets[index] * cell - 2.5 * cell,
+    top: marker.point.y - 2.5 * cell,
+  }));
+
+  // One decision per city, made on the rightmost icon: badges flip to the left of their
+  // sprites near the right edge of the crop, all together, so two badges never face each
+  // other across one gap.
+  const rightmost = marker.point.x + (offsets[offsets.length - 1] ?? 0) * cell;
+  const flip = rightmost + 4 * cell > bounds.x + bounds.width;
 
   return (
     <g shapeRendering="crispEdges">
+      {placed.map(({ icon, left, top }) => (
+        <IconSprite key={icon.kind} icon={icon} cell={cell} left={left} top={top} />
+      ))}
+      {placed.map(({ icon, left, top }) =>
+        icon.count > 1 ? (
+          <CountBadge
+            key={`badge-${icon.kind}`}
+            count={icon.count}
+            cell={cell}
+            left={left}
+            top={top}
+            flip={flip}
+          />
+        ) : null,
+      )}
+    </g>
+  );
+}
+
+function IconSprite({
+  icon,
+  cell,
+  left,
+  top,
+}: {
+  icon: SightingIcon;
+  cell: number;
+  left: number;
+  top: number;
+}) {
+  const accent = CATEGORY_ACCENT[icon.category];
+
+  return (
+    <>
       {/* A dark plate under the sprite: coral legs on navy land would otherwise disappear. */}
       <rect
         x={left - 0.4 * cell}
@@ -127,65 +171,41 @@ function SpiderMarker({
         opacity={0.9}
       />
 
-      {MARKER_LEGS.map(([column, row]) => (
+      {markerSpriteRects(icon.kind).map((rect) => (
         <rect
-          key={`leg-${column}-${row}`}
-          x={left + column * cell}
-          y={top + row * cell}
-          width={cell}
-          height={cell}
-          style={{ fill: accent }}
+          key={`${rect.tone}-${rect.x}-${rect.y}`}
+          x={left + rect.x * cell}
+          y={top + rect.y * cell}
+          width={rect.width * cell}
+          height={rect.height * cell}
+          style={{ fill: toneFill(rect.tone, accent) }}
         />
       ))}
-
-      <rect
-        x={left + cell}
-        y={top + cell}
-        width={3 * cell}
-        height={3 * cell}
-        style={{ fill: accent }}
-      />
-
-      {MARKER_EYES.map((column) => (
-        <rect
-          key={`eye-${column}`}
-          x={left + column * cell}
-          y={top + cell}
-          width={cell}
-          height={cell}
-          style={{ fill: "var(--color-cream)" }}
-        />
-      ))}
-
-      {marker.count > 1 ? (
-        <CountBadge marker={marker} cell={cell} left={left} top={top} bounds={bounds} />
-      ) : null}
-    </g>
+    </>
   );
 }
 
 /**
- * `×5` on an amber chip at the pin's shoulder — one marker, several figures.
+ * `×5` on an amber chip at an icon's shoulder — one sprite, several figures.
  *
  * It flips to the left of the sprite when the city sits near the right edge of the crop, so
- * Moscow's badge cannot end up half outside the panel.
+ * Moscow's badge cannot end up half outside the panel (the caller decides, once per city).
  */
 function CountBadge({
-  marker,
+  count,
   cell,
   left,
   top,
-  bounds,
+  flip,
 }: {
-  marker: CitySighting;
+  count: number;
   cell: number;
   left: number;
   top: number;
-  bounds: MapBounds;
+  flip: boolean;
 }) {
-  const width = cell * (marker.count > 9 ? 3.2 : 2.4);
+  const width = cell * (count > 9 ? 3.2 : 2.4);
   const height = cell * 2.2;
-  const flip = marker.point.x + 4 * cell > bounds.x + bounds.width;
   const x = flip ? left - width + cell * 0.8 : left + 4.2 * cell;
   const y = top - cell * 1.6;
 
@@ -208,14 +228,46 @@ function CountBadge({
         className="font-pixel"
         style={{ fill: "var(--color-ink-px)" }}
       >
-        {marker.count}
+        {count}
       </text>
     </>
   );
 }
 
+/** The legend's key: the map's own 5×5 sprite for one kind, at text size. */
+function MiniSprite({ icon }: { icon: SightingIcon }) {
+  const accent = CATEGORY_ACCENT[icon.category];
+  return (
+    <svg
+      viewBox={`0 0 ${MARKER_GRID} ${MARKER_GRID}`}
+      shapeRendering="crispEdges"
+      aria-hidden="true"
+      focusable="false"
+      data-icon-kind={icon.kind}
+      className="h-3 w-3 shrink-0"
+    >
+      {markerSpriteRects(icon.kind).map((rect) => (
+        <rect
+          key={`${rect.tone}-${rect.x}-${rect.y}`}
+          x={rect.x}
+          y={rect.y}
+          width={rect.width}
+          height={rect.height}
+          style={{ fill: toneFill(rect.tone, accent) }}
+        />
+      ))}
+    </svg>
+  );
+}
+
 /**
- * Flag · city · count under the map — the legend, and the accessible version of the picture.
+ * Flag · city · icons · counts under the map — the legend, the accessible version of the
+ * picture, and since Phase 14 its KEY: each chip repeats the city's sprites at text size,
+ * each followed by that kind's count, so the Stitch and the Grogu on the map are explained
+ * right underneath it rather than left to be guessed.
+ *
+ * The mini sprites are decoration; what a screen reader gets is one natural phrase per city
+ * ("3 spiders, 1 Stitch, 1 Grogu"), not three anonymous numbers.
  *
  * Deliberately not links. There are no city pages, and a link that goes nowhere useful is a
  * worse promise than plain text; when `/place/<city>` exists this is the component that grows
@@ -237,9 +289,15 @@ export function SightingsLegend({ data }: { data: SightingsMapData }) {
             <span className="font-pixel text-[10px] leading-relaxed tracking-wider text-cream">
               {marker.city}
             </span>
-            <span className="font-pixel text-[10px] leading-relaxed tracking-wider text-lcd-glow tabular-nums">
-              {marker.count}
-            </span>
+            {marker.icons.map((icon) => (
+              <span key={icon.kind} className="flex items-center gap-1" aria-hidden="true">
+                <MiniSprite icon={icon} />
+                <span className="font-pixel text-[10px] leading-relaxed tracking-wider text-lcd-glow tabular-nums">
+                  {icon.count}
+                </span>
+              </span>
+            ))}
+            <span className="sr-only">{sightingIconsLabel(marker.icons)}</span>
           </li>
         ))}
       </ul>

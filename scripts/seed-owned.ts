@@ -127,13 +127,14 @@ async function main(): Promise<void> {
         total: sql<number>`count(*)::int`,
         mine: sql<number>`(count(*) filter (where ${ownedFigures.status} = 'mine'))::int`,
         notMineAnymore: sql<number>`(count(*) filter (where ${ownedFigures.status} = 'not_mine_anymore'))::int`,
+        veronika: sql<number>`(count(*) filter (where ${ownedFigures.status} = 'veronika'))::int`,
         unlinked: sql<number>`(count(*) filter (where ${ownedFigures.referenceFigureId} is null))::int`,
       })
       .from(ownedFigures);
 
     console.log(`Seeded: ${inserted} inserted, ${updated} updated`);
     console.log(
-      `owned_figures: ${totals.total} rows · ${totals.mine} mine · ${totals.notMineAnymore} not mine anymore · ${totals.unlinked} without a catalog row`,
+      `owned_figures: ${totals.total} rows · ${totals.mine} mine · ${totals.notMineAnymore} not mine anymore · ${totals.veronika} veronika's · ${totals.unlinked} without a catalog row`,
     );
   } finally {
     await client.end();

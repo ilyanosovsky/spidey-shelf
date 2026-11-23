@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
+import { BOX_ART_COPY } from "@/lib/box-art";
 import { adminFigure, VARIANT_FIXTURE } from "@/test/fixtures";
 
 import { ConfirmStep } from "./confirm-step";
@@ -22,6 +23,21 @@ import { ScanFailedStep, ScanResultStep } from "./scan-result-step";
  */
 
 const noop = async () => {};
+
+/**
+ * Phase 14 put the BOX ART panel on the details step, and it is a client component with two
+ * things a test cannot have: an app router and an UploadThing endpoint. Both are replaced by
+ * the smallest stand-in that lets the panel render — its behaviour is tested where it lives,
+ * in `../box-art-panel.test.tsx`; here it only has to be present and out of the form's way.
+ */
+vi.mock("next/navigation", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
+vi.mock("@/lib/uploadthing", () => ({
+  useUploadThing: () => ({ startUpload: vi.fn(), isUploading: false, routeConfig: undefined }),
+}));
 
 const REF = adminFigure().id;
 const SIBLINGS = VARIANT_FIXTURE.filter((figure) => figure.id !== REF && figure.popNumber === 3);
@@ -121,13 +137,16 @@ describe("NewFigureStep", () => {
     expect(screen.getByLabelText("POP NUMBER (OPTIONAL)")).toHaveValue("1450");
   });
 
-  it("offers the four buckets with PETER PARKER preselected", () => {
+  it("offers the six buckets with PETER PARKER preselected", () => {
     render(<NewFigureStep query="" errors={[]} action={noop} />);
 
     expect(screen.getByLabelText("PETER PARKER")).toBeChecked();
     expect(screen.getByLabelText("SPIDER-VERSE")).not.toBeChecked();
     expect(screen.getByLabelText("FRIENDS & FOES")).toBeInTheDocument();
+    expect(screen.getByLabelText("STITCH")).toBeInTheDocument();
+    expect(screen.getByLabelText("GROGU")).toBeInTheDocument();
     expect(screen.getByLabelText("OTHER")).toBeInTheDocument();
+    expect(screen.getAllByRole("radio")).toHaveLength(6);
   });
 
   it("takes a scan's name AND number, which no single ?q= could carry", () => {
@@ -360,6 +379,44 @@ describe("DetailsStep", () => {
     expect(screen.getByLabelText("MINE")).toBeChecked();
   });
 
+  it("offers three statuses, VERONIKA'S spanning the row on a phone", () => {
+    render(
+      <DetailsStep
+        figure={adminFigure()}
+        defaults={defaults}
+        citiesByCountry={cities}
+        errors={[]}
+        action={noop}
+      />,
+    );
+
+    const radios = screen.getAllByRole("radio");
+    expect(radios.map((radio) => radio.getAttribute("value"))).toEqual([
+      "mine",
+      "not_mine_anymore",
+      "veronika",
+    ]);
+    expect(screen.getByLabelText("NOT MINE ANYMORE")).not.toBeChecked();
+    // Three columns cannot hold VERONIKA'S in the pixel font at 375px.
+    const hers = screen.getByLabelText("VERONIKA'S").closest("label");
+    expect(hers).toHaveClass("col-span-2", "sm:col-span-1", "min-h-11");
+  });
+
+  it("preselects VERONIKA'S when the defaults say so", () => {
+    render(
+      <DetailsStep
+        figure={adminFigure({ category: "stitch" })}
+        defaults={{ ...defaults, status: "veronika" }}
+        citiesByCountry={cities}
+        errors={[]}
+        action={noop}
+      />,
+    );
+
+    expect(screen.getByLabelText("VERONIKA'S")).toBeChecked();
+    expect(screen.getByLabelText("MINE")).not.toBeChecked();
+  });
+
   it("offers both submits, with SAVE first so a stray Enter never skips the story", () => {
     render(
       <DetailsStep
@@ -371,11 +428,50 @@ describe("DetailsStep", () => {
       />,
     );
 
-    const submits = screen.getAllByRole("button");
+    // Scoped to the form: the BOX ART button above it is not a submit and not inside it.
+    const form = screen.getByRole("button", { name: "SAVE THE SIGHTING" }).closest("form");
+    const submits = within(form as HTMLFormElement).getAllByRole("button");
+    expect(submits).toHaveLength(2);
     expect(submits[0]).toHaveTextContent("SAVE THE SIGHTING");
     expect(submits[0]).toHaveAttribute("value", "save");
     expect(submits[1]).toHaveTextContent("SKIP FOR NOW");
     expect(submits[1]).toHaveAttribute("value", "skip");
+  });
+
+  it("offers the box art upload right here, outside the form and without a second picture", () => {
+    const { container } = render(
+      <DetailsStep
+        figure={adminFigure()}
+        defaults={defaults}
+        citiesByCountry={cities}
+        errors={[]}
+        action={noop}
+      />,
+    );
+
+    const upload = screen.getByRole("button", { name: BOX_ART_COPY.upload });
+    // A plain button outside the form: pressing it must never submit the sighting, and a
+    // stray Enter in the city field must still reach SAVE first.
+    expect(upload).toHaveAttribute("type", "button");
+    expect(upload.closest("form")).toBeNull();
+    expect(container.querySelector('input[type="file"]')?.closest("form")).toBeNull();
+
+    // The summary above is the only picture — the panel does not draw a second one.
+    expect(container.querySelectorAll(".aspect-square")).toHaveLength(1);
+  });
+
+  it("says REPLACE when the catalog row already has its picture", () => {
+    render(
+      <DetailsStep
+        figure={adminFigure({ imagePath: "https://si4zn51deh.ufs.sh/f/key_spider-man-800.webp" })}
+        defaults={defaults}
+        citiesByCountry={cities}
+        errors={[]}
+        action={noop}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: BOX_ART_COPY.replace })).toBeInTheDocument();
   });
 
   it("keeps the chosen figure out of the visible form", () => {
@@ -472,7 +568,7 @@ describe("ScanFailedStep", () => {
 });
 
 describe("DoneStep", () => {
-  const stats = { mine: 16, total: 20, peterOwned: 12, peterTotal: 120 };
+  const stats = { onShelf: 16, total: 20, peterOwned: 12, peterTotal: 120 };
 
   it("celebrates, shows the fresh counter and offers the next figure", () => {
     render(

@@ -1,4 +1,5 @@
 import { FIGURE_CATEGORIES, type FigureCategory } from "./categories";
+import { FIGURE_SPRITE_KINDS, figureSpriteKind, type FigureSpriteKind } from "./figure-sprites";
 import { countryFlagEmoji } from "./format";
 import {
   cityKey,
@@ -27,6 +28,32 @@ import { filterShelf, type PublicShelfEntry } from "./showcase";
  * anything, and neither does the page that calls it.
  */
 
+/**
+ * Which sprite a figure is pinned with (Phase 14): the spider for the owner's lines, a
+ * sprite of their own for each of Veronika's two. Same mapping as the placeholder box art, so a figure wears
+ * the same picture on its card and on the map — it is defined once, in `figure-sprites.ts`.
+ */
+export type SightingIconKind = FigureSpriteKind;
+
+/** Display order of a city's icons, left to right: always spider, then stitch, then grogu. */
+export const SIGHTING_ICON_KINDS: readonly SightingIconKind[] = FIGURE_SPRITE_KINDS;
+
+export function sightingIconKind(category: FigureCategory | null | undefined): SightingIconKind {
+  return figureSpriteKind(category);
+}
+
+/** One sprite at a city: a kind that is present there, and how many of the city's figures. */
+export interface SightingIcon {
+  kind: SightingIconKind;
+  count: number;
+  /**
+   * The icon's colour: the dominant bucket among THIS kind's figures. For the spider that is
+   * the old whole-city rule applied to the owner's figures only; for her two lines it is simply
+   * their own line.
+   */
+  category: FigureCategory;
+}
+
 /** One pin: a city, everything found there, and where it lands on the map. */
 export interface CitySighting {
   /** `il:haifa` — the dictionary key, and a stable React key. */
@@ -36,9 +63,16 @@ export interface CitySighting {
   /** ISO 3166-1 alpha-2, uppercase. */
   country: string;
   flag: string;
+  /** Every figure found there, whoever's it is — the legend's total and the caption's sum. */
   count: number;
-  /** The bucket most of this city's figures belong to — the pin's colour. */
+  /** The bucket most of this city's figures belong to — the legend chip's border. */
   category: FigureCategory;
+  /**
+   * One entry per kind PRESENT, in {@link SIGHTING_ICON_KINDS} order — never an entry with a
+   * zero count. One city is still one cluster with one coordinate; the component draws these
+   * side by side around it.
+   */
+  icons: SightingIcon[];
   point: MapPoint;
 }
 
@@ -76,6 +110,54 @@ export function dominantCategory(categories: readonly FigureCategory[]): FigureC
     }
   }
   return best;
+}
+
+/**
+ * A city's figures split by sprite kind, in display order, empty kinds dropped.
+ *
+ * Separate icons rather than one mixed pin because the owner asked for exactly that: his
+ * spiders and her lines are two collections on one shelf, and a single coral spider over
+ * Amsterdam would hide that one of the three figures found there is hers.
+ */
+export function sightingIcons(categories: readonly FigureCategory[]): SightingIcon[] {
+  return SIGHTING_ICON_KINDS.flatMap((kind): SightingIcon[] => {
+    const own = categories.filter((category) => sightingIconKind(category) === kind);
+    return own.length === 0 ? [] : [{ kind, count: own.length, category: dominantCategory(own) }];
+  });
+}
+
+/**
+ * Horizontal centres of a city's icons, in marker cells, relative to the city's point.
+ *
+ * The group is centred on the city, so one icon sits exactly where the lone spider always
+ * has (offset 0). The pitch is the 5.8-cell plate plus a one-cell gap: that gap is what keeps
+ * a single-digit count badge — which hangs off an icon's top-right shoulder — clear of the
+ * next icon's sprite.
+ */
+export const SIGHTING_ICON_PITCH = 6.8;
+
+export function sightingIconOffsets(count: number): number[] {
+  return Array.from(
+    { length: count },
+    (_, index) => (index - (count - 1) / 2) * SIGHTING_ICON_PITCH,
+  );
+}
+
+/** Singular and plural for the legend's spoken line — the owner's own words for the lines. */
+const SIGHTING_ICON_NOUNS: Record<SightingIconKind, readonly [string, string]> = {
+  spider: ["spider", "spiders"],
+  stitch: ["Stitch", "Stitches"],
+  grogu: ["Grogu", "Grogus"],
+};
+
+/**
+ * `3 spiders, 1 Stitch, 1 Grogu` — what a screen reader hears for a legend chip, where a
+ * sighted visitor sees three mini sprites and three numbers.
+ */
+export function sightingIconsLabel(icons: readonly SightingIcon[]): string {
+  return icons
+    .map(({ kind, count }) => `${count} ${SIGHTING_ICON_NOUNS[kind][count === 1 ? 0 : 1]}`)
+    .join(", ");
 }
 
 function unchartedPlace(entry: PublicShelfEntry): string {
@@ -156,6 +238,7 @@ export function buildSightingsMap(entries: readonly PublicShelfEntry[]): Sightin
         flag: countryFlagEmoji(first.acquiredCountry),
         count: found.length,
         category: dominantCategory(found.map((entry) => entry.category)),
+        icons: sightingIcons(found.map((entry) => entry.category)),
         point,
       };
     })

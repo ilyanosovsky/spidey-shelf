@@ -37,7 +37,7 @@ export interface PublicShelfEntry {
    * A public column: the picture is the one catalog field a visitor is here to look at.
    */
   imagePath: string | null;
-  /** `mine` / `not_mine_anymore`; NULL rows predate the status column. */
+  /** `mine` / `not_mine_anymore` / `veronika`; NULL rows predate the status column. */
   status: OwnedStatus | null;
   /**
    * How many copies of this figure are on the shelf (Phase 11 — the FINANCES total

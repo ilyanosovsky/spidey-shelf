@@ -81,7 +81,7 @@ describe("parseCatalogCsv", () => {
 
   it("rejects an unknown category", () => {
     expect(() => row("3,Spider-Man,,villains,Pop! Marvel,,,,true,,,false,")).toThrow(
-      /`category` must be one of peter, spider_verse, friends_foes, other, found `villains`/,
+      /`category` must be one of peter, spider_verse, friends_foes, stitch, grogu, other, found `villains`/,
     );
   });
 
@@ -289,6 +289,15 @@ describe("data/catalog/others-manual.csv", () => {
       expect(figure.category, figure.slug).not.toBe("peter");
       expect(figure.countsTowardTotal, figure.slug).toBe(false);
     }
+  });
+
+  it("files the Lilo & Stitch figures under STITCH (Veronika's line) and the rest under OTHER", () => {
+    const stitch = rows
+      .filter((figure) => figure.category === "stitch")
+      .map((figure) => figure.popNumber)
+      .sort((a, b) => Number(a) - Number(b));
+    expect(stitch).toEqual([718, 1570, 1572]);
+    expect(rows.filter((figure) => figure.category === "other").length).toBe(2);
   });
 
   it("gives every row a product line and a source url", () => {

@@ -22,7 +22,7 @@ describe("normalizeCategoryProgress", () => {
   it("returns the buckets in taxonomy order", () => {
     expect(
       normalizeCategoryProgress([...LIVE_PROGRESS].reverse()).map((row) => row.category),
-    ).toEqual(["peter", "spider_verse", "friends_foes", "other"]);
+    ).toEqual(["peter", "spider_verse", "friends_foes", "stitch", "grogu", "other"]);
   });
 
   it("keeps a bucket the query did not return, as 0 / 0", () => {
@@ -30,6 +30,8 @@ describe("normalizeCategoryProgress", () => {
       { category: "peter", owned: 11, total: 120 },
       { category: "spider_verse", owned: 0, total: 0 },
       { category: "friends_foes", owned: 0, total: 0 },
+      { category: "stitch", owned: 0, total: 0 },
+      { category: "grogu", owned: 0, total: 0 },
       { category: "other", owned: 0, total: 0 },
     ]);
   });
@@ -39,7 +41,7 @@ describe("normalizeCategoryProgress", () => {
       ...LIVE_PROGRESS,
       { category: "clones", owned: 9, total: 9 },
     ]);
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(6);
     expect(rows.some((row) => (row.category as string) === "clones")).toBe(false);
   });
 

@@ -81,7 +81,7 @@ export function DoneStep({
           label={`${FIGURE_CATEGORY_LABELS.peter} COLLECTED`}
           size="sm"
         />
-        <LCDCounter value={String(stats.mine)} label="FIGURES ON THE SHELF" size="sm" />
+        <LCDCounter value={String(stats.onShelf)} label="FIGURES ON THE SHELF" size="sm" />
       </div>
 
       <div className="flex flex-col gap-3">

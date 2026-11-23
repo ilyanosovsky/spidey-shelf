@@ -2,11 +2,25 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { buildSightingsMap } from "@/lib/sightings-map";
-import { shelfEntry, SHELF_FIXTURE } from "@/test/fixtures";
+import { shelfEntry, SHELF_FIXTURE, VERONIKA_SHELF_ENTRY } from "@/test/fixtures";
 
 import { SightingsLegend, SightingsMap } from "./sightings-map";
 
 const DATA = buildSightingsMap(SHELF_FIXTURE);
+
+/** Amsterdam with two of his spiders, one of her Stitches and one of her Grogus. */
+const MIXED = buildSightingsMap([
+  shelfEntry({ slug: "p1", acquiredCity: "Amsterdam", acquiredCountry: "NL" }),
+  shelfEntry({ slug: "p2", acquiredCity: "Amsterdam", acquiredCountry: "NL" }),
+  VERONIKA_SHELF_ENTRY,
+  shelfEntry({
+    slug: "g1",
+    category: "grogu",
+    status: "veronika",
+    acquiredCity: "Amsterdam",
+    acquiredCountry: "NL",
+  }),
+]);
 
 describe("SightingsMap", () => {
   it("crops to a viewBox that holds the markers", () => {
@@ -43,6 +57,29 @@ describe("SightingsMap", () => {
     expect(badges).toEqual(["2"]);
   });
 
+  it("draws one plate per kind at a mixed city, and badges only the kind with several", () => {
+    const { container } = render(<SightingsMap data={MIXED} />);
+    const plates = [...container.querySelectorAll("rect")].filter(
+      (rect) => rect.getAttribute("opacity") === "0.9",
+    );
+    expect(plates).toHaveLength(3);
+    // Plates sit side by side, left to right, never on top of each other.
+    const xs = plates.map((rect) => Number(rect.getAttribute("x")));
+    expect(xs).toEqual([...xs].sort((a, b) => a - b));
+    expect(new Set(xs).size).toBe(3);
+
+    const badges = [...container.querySelectorAll("text")].map((node) => node.textContent);
+    expect(badges).toEqual(["2"]);
+  });
+
+  it("draws a spider-only city as a single plate", () => {
+    const { container } = render(<SightingsMap data={buildSightingsMap([shelfEntry()])} />);
+    const plates = [...container.querySelectorAll("rect")].filter(
+      (rect) => rect.getAttribute("opacity") === "0.9",
+    );
+    expect(plates).toHaveLength(1);
+  });
+
   it("captions itself with the totals", () => {
     render(<SightingsMap data={DATA} />);
     expect(screen.getByText("4 CITIES · 5 SIGHTINGS")).toBeInTheDocument();
@@ -62,6 +99,19 @@ describe("SightingsLegend", () => {
     expect(items[0]).toContain("MOSCOW");
     expect(items[0]).toContain("2");
     expect(items).toHaveLength(4);
+  });
+
+  it("is the key to the icons: a mini sprite and a count per kind, plus a spoken line", () => {
+    render(<SightingsLegend data={MIXED} />);
+    const [chip] = screen.getAllByRole("listitem");
+
+    const kinds = [...chip.querySelectorAll("svg")].map((svg) => svg.dataset.iconKind);
+    expect(kinds).toEqual(["spider", "stitch", "grogu"]);
+    for (const svg of chip.querySelectorAll("svg")) {
+      expect(svg).toHaveAttribute("aria-hidden", "true");
+    }
+    expect(within(chip).getByText("2 spiders, 1 Stitch, 1 Grogu")).toHaveClass("sr-only");
+    expect(chip.textContent).toContain("AMSTERDAM");
   });
 
   it("is not a set of links — there are no city pages to link to", () => {

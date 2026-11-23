@@ -1,4 +1,9 @@
-import { FIGURE_CATEGORIES, FIGURE_CATEGORY_LABELS, isFigureCategory } from "./categories";
+import {
+  FIGURE_CATEGORIES,
+  FIGURE_CATEGORY_LABELS,
+  isFigureCategory,
+  isVeronikaCategory,
+} from "./categories";
 import { type PublicCatalogFigure } from "./search";
 import { type ShelfFilter } from "./showcase";
 
@@ -66,7 +71,15 @@ export interface WishlistTab {
   count: number;
 }
 
-/** ALL plus the four buckets, each carrying how many figures are still out there. */
+/**
+ * ALL plus the buckets, each carrying how many figures are still out there.
+ *
+ * Every Spider-Man bucket (and OTHER) is always present, even at zero — an empty PETER
+ * PARKER tab is a brag, not a dead end. Veronika's lines (STITCH, GROGU) are the exception:
+ * they have no hunt catalog of their own, only what is already on the shelf gets catalogued,
+ * so their wishlist is empty by construction and a permanent `0` tab would be noise. The tab
+ * appears the moment someone does catalogue an unowned Stitch or Grogu.
+ */
 export function wishlistTabs(figures: readonly PublicCatalogFigure[]): WishlistTab[] {
   return [
     { value: "all" as ShelfFilter, label: "ALL", count: figures.length },
@@ -74,7 +87,7 @@ export function wishlistTabs(figures: readonly PublicCatalogFigure[]): WishlistT
       value: category as ShelfFilter,
       label: FIGURE_CATEGORY_LABELS[category],
       count: filterWishlist(figures, category).length,
-    })),
+    })).filter((tab) => !(isVeronikaCategory(tab.value) && tab.count === 0)),
   ];
 }
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { figureCategoryLabel } from "@/lib/categories";
+import { isVeronikas, OWNED_STATUS_LABELS } from "@/lib/collection";
 import { formatPlace, formatPopNumber, formatSightingDate } from "@/lib/format";
 import { hasLeftTheShelf, type PublicShelfEntry } from "@/lib/showcase";
 
@@ -12,11 +13,16 @@ import { categoryAccent } from "./pixel-spider-art";
  * One figure on the shelf: a framed panel of placeholder box art, the amber number badge,
  * the name, and where and when it was picked up.
  *
- * Three states, all of them data — nothing here is toggled by a prop the caller could get
+ * Four states, all of them data — nothing here is toggled by a prop the caller could get
  * wrong except the ribbon's star:
- *   · **mine** — the default card;
+ *   · **mine** — the default card, framed in the category's accent;
  *   · **not mine anymore** — dimmed, with an amber chip, because the figure and its story
  *     stay on the shelf even after the figure itself is gone;
+ *   · **Veronika's** (Phase 14) — framed in pink with a pink VERONIKA'S chip, NOT dimmed:
+ *     her figure is on the shelf as much as his are. The owner asked for the pink frame to
+ *     tell his spiders from her lines at a glance; the chip is there because colour must
+ *     never be the only signal. The category line keeps its own accent, so the frame says
+ *     whose and the line still says what;
  *   · **new sighting** — an amber star badge, used by the NEW SIGHTINGS ribbon.
  *
  * The whole card is one link (44px+ tall by a wide margin) to `/figure/<slug>`.
@@ -42,17 +48,19 @@ export function FigureCard({
   className?: string;
 }) {
   const gone = hasLeftTheShelf(entry);
+  const hers = isVeronikas(entry.status);
   const accent = categoryAccent(entry.category);
+  const frame = hers ? "var(--color-pink)" : accent;
 
   return (
     <Link
       href={`/figure/${entry.slug}`}
       // `h-full` so a row of cards stays one rectangle even when one name wraps to two
-      // lines or one figure carries the NOT MINE ANYMORE chip.
+      // lines or one figure carries the NOT MINE ANYMORE / VERONIKA'S chip.
       className={`group block h-full rounded border-2 bg-navy-deep p-2 shadow-[3px_3px_0_var(--color-ink-px)] transition-transform hover:-translate-y-[2px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber ${
         gone ? "opacity-60" : ""
       } ${className}`}
-      style={{ borderColor: accent }}
+      style={{ borderColor: frame }}
     >
       <div className="relative">
         <BoxArt
@@ -104,6 +112,11 @@ export function FigureCard({
       {gone ? (
         <p className="font-pixel mt-2 inline-block rounded border-2 border-amber px-2 py-1 text-[10px] leading-relaxed tracking-wider text-amber">
           NOT MINE ANYMORE
+        </p>
+      ) : null}
+      {hers ? (
+        <p className="font-pixel mt-2 inline-block rounded border-2 border-pink px-2 py-1 text-[10px] leading-relaxed tracking-wider text-pink">
+          {OWNED_STATUS_LABELS.veronika}
         </p>
       ) : null}
     </Link>

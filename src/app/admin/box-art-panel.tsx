@@ -31,6 +31,12 @@ import { useUploadThing } from "@/lib/uploadthing";
  *
  * The state machine, the wording and the bar's blocks are pure functions in
  * `src/lib/box-art.ts`, so this file is wiring: pick → normalize → upload → refresh.
+ *
+ * It lives beside `sighting-fields.tsx` since Phase 14 because two screens mount it: the
+ * collection edit form, and Quick Add's details step — the owner's note was that a figure
+ * logged in a shop could only get its photo afterwards, through EDIT, which in practice meant
+ * never. Box art belongs to the CATALOG row, and that row exists from the moment a figure is
+ * picked, so nothing about the upload has to wait for the sighting to be saved.
  */
 export function BoxArtPanel({
   referenceFigureId,
@@ -39,6 +45,7 @@ export function BoxArtPanel({
   category,
   popNumber,
   imagePath,
+  preview = true,
 }: {
   referenceFigureId: string;
   slug: string;
@@ -46,6 +53,14 @@ export function BoxArtPanel({
   category: FigureCategory | null;
   popNumber: number | null;
   imagePath: string | null;
+  /**
+   * Draw the 160px picture next to the controls. The edit screen wants it — it is the only
+   * place on that page the art appears. Quick Add's details step turns it off: the figure
+   * summary directly above the panel already carries the thumbnail, and `router.refresh()`
+   * repaints it the moment the upload lands, so a second, larger copy would only push the
+   * form further down a phone screen.
+   */
+  preview?: boolean;
 }) {
   const router = useRouter();
   const [state, dispatch] = useReducer(boxArtUploadReducer, INITIAL_BOX_ART_STATE);
@@ -145,25 +160,27 @@ export function BoxArtPanel({
       </div>
 
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start">
-        <div className="relative mx-auto w-40 shrink-0 overflow-hidden sm:mx-0 sm:w-44">
-          <BoxArt
-            slug={slug}
-            name={name}
-            category={category}
-            popNumber={popNumber}
-            imagePath={shownImagePath}
-            size="hero"
-            sizes="176px"
-          />
-          {/* The sweep from the scanner, reused: it says "working" without a spinner, and it
-              is already parked in the middle under `prefers-reduced-motion`. */}
-          {busy ? (
-            <span
-              aria-hidden="true"
-              className="scanline pointer-events-none absolute right-0 left-0 h-[3px] bg-amber"
+        {preview ? (
+          <div className="relative mx-auto w-40 shrink-0 overflow-hidden sm:mx-0 sm:w-44">
+            <BoxArt
+              slug={slug}
+              name={name}
+              category={category}
+              popNumber={popNumber}
+              imagePath={shownImagePath}
+              size="hero"
+              sizes="176px"
             />
-          ) : null}
-        </div>
+            {/* The sweep from the scanner, reused: it says "working" without a spinner, and it
+                is already parked in the middle under `prefers-reduced-motion`. */}
+            {busy ? (
+              <span
+                aria-hidden="true"
+                className="scanline pointer-events-none absolute right-0 left-0 h-[3px] bg-amber"
+              />
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="min-w-0 flex-1">
           {state.phase === "done" ? (

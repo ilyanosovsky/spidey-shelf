@@ -291,8 +291,11 @@ export async function getOwnedFigure(id: string): Promise<OwnedFigureRow | null>
 
 /** The numbers on the console's LCD panel. */
 export interface VaultStats {
-  /** Shelf rows whose status is `mine`. */
-  mine: number;
+  /**
+   * Shelf rows physically on the shared shelf — `mine` plus `veronika` (see `isOnTheShelf`).
+   * Veronika's figures stand on the same shelf, so "FIGURES ON THE SHELF" counts them too.
+   */
+  onShelf: number;
   /** Shelf rows in total, including the ones that left. */
   total: number;
   /** Distinct `peter` catalog figures owned — the numerator of the honest denominator. */
@@ -304,7 +307,7 @@ export interface VaultStats {
 export async function getVaultStats(): Promise<VaultStats> {
   const [shelf] = await db
     .select({
-      mine: sql<number>`(count(*) filter (where ${ownedFigures.status} = 'mine'))::int`,
+      onShelf: sql<number>`(count(*) filter (where ${ownedFigures.status} in ('mine', 'veronika')))::int`,
       total: sql<number>`count(*)::int`,
     })
     .from(ownedFigures);
@@ -318,7 +321,7 @@ export async function getVaultStats(): Promise<VaultStats> {
     .where(eq(catalogWithOwnership.category, "peter"));
 
   return {
-    mine: shelf?.mine ?? 0,
+    onShelf: shelf?.onShelf ?? 0,
     total: shelf?.total ?? 0,
     peterOwned: peter?.owned ?? 0,
     peterTotal: peter?.total ?? 0,

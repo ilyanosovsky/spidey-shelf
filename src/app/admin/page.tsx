@@ -47,7 +47,7 @@ export default async function AdminPage() {
         </h1>
 
         <div className="mt-6 grid grid-cols-2 gap-3">
-          <LcdStat value={String(stats.mine)} label="FIGURES ON THE SHELF" />
+          <LcdStat value={String(stats.onShelf)} label="FIGURES ON THE SHELF" />
           <LcdStat
             value={`${stats.peterOwned} / ${stats.peterTotal}`}
             label={`${FIGURE_CATEGORY_LABELS.peter} COLLECTED`}

@@ -41,12 +41,14 @@ describe("parseShelfFilter", () => {
 });
 
 describe("SHELF_TABS", () => {
-  it("is ALL plus the four buckets, in taxonomy order", () => {
+  it("is ALL plus all six buckets, in taxonomy order", () => {
     expect(SHELF_TABS.map((tab) => tab.value)).toEqual([
       "all",
       "peter",
       "spider_verse",
       "friends_foes",
+      "stitch",
+      "grogu",
       "other",
     ]);
     expect(SHELF_TABS.map((tab) => tab.label)).toEqual([
@@ -54,6 +56,8 @@ describe("SHELF_TABS", () => {
       "PETER PARKER",
       "SPIDER-VERSE",
       "FRIENDS & FOES",
+      "STITCH",
+      "GROGU",
       "OTHER",
     ]);
   });

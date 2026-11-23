@@ -184,9 +184,9 @@ describe("WebRadar", () => {
   it("draws one wedge per bucket and lists the counts", () => {
     const { container } = render(<WebRadar progress={PROGRESS} />);
 
-    // 4 wedges + 4 rings.
-    expect(container.querySelectorAll("polygon")).toHaveLength(8);
-    expect(container.querySelectorAll("line")).toHaveLength(12);
+    // 6 wedges (one per bucket) + 4 rings; 3 spokes per sector.
+    expect(container.querySelectorAll("polygon")).toHaveLength(10);
+    expect(container.querySelectorAll("line")).toHaveLength(18);
 
     expect(screen.getByText("PETER PARKER")).toBeInTheDocument();
     expect(screen.getByText("11 / 120")).toBeInTheDocument();

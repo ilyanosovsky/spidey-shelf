@@ -70,19 +70,32 @@ export function LcdStat({ value, label }: { value: string; label: string }) {
   );
 }
 
+/**
+ * The status as a chip. `not_mine_anymore` reads `GONE` here (a chip has no room for the
+ * long label); Veronika's figures get her pink frame so they stand apart in admin lists.
+ */
 export function StatusChip({ status }: { status: string | null }) {
   const isMine = status === "mine";
+  const isVeronikas = status === "veronika";
   const tone = isMine
     ? "border-pop-green text-pop-green"
-    : status === "not_mine_anymore"
-      ? "border-coral text-coral"
-      : "border-cream/40 text-cream/60";
+    : isVeronikas
+      ? "border-pink text-pink"
+      : status === "not_mine_anymore"
+        ? "border-coral text-coral"
+        : "border-cream/40 text-cream/60";
 
   return (
     <span
       className={`font-pixel inline-block rounded border-2 px-2 py-1 text-[10px] tracking-wider ${tone}`}
     >
-      {isMine ? "MINE" : status === "not_mine_anymore" ? "GONE" : "UNKNOWN"}
+      {isMine
+        ? "MINE"
+        : isVeronikas
+          ? "VERONIKA'S"
+          : status === "not_mine_anymore"
+            ? "GONE"
+            : "UNKNOWN"}
     </span>
   );
 }
